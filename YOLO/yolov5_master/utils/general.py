@@ -24,6 +24,7 @@ import torch
 import torchvision
 import yaml
 
+
 from utils.downloads import gsutil_getsize
 from utils.metrics import box_iou, fitness
 from utils.torch_utils import init_torch_seeds
