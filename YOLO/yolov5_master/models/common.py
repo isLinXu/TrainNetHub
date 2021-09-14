@@ -149,8 +149,16 @@ class C3SPP(C3):
         self.m = SPP(c_, c_, k)
 
 
+class C3Ghost(C3):
+    # C3 module with GhostBottleneck()
+    def __init__(self, c1, c2, n=1, shortcut=True, g=1, e=0.5):
+        super().__init__(c1, c2, n, shortcut, g, e)
+        c_ = int(c2 * e)  # hidden channels
+        self.m = nn.Sequential(*[GhostBottleneck(c_, c_) for _ in range(n)])
+
+
 class SPP(nn.Module):
-    # Spatial pyramid pooling layer used in YOLOv3-SPP
+    # Spatial Pyramid Pooling (SPP) layer https://arxiv.org/abs/1406.4729
     def __init__(self, c1, c2, k=(5, 9, 13)):
         super().__init__()
         c_ = c1 // 2  # hidden channels
@@ -165,6 +173,24 @@ class SPP(nn.Module):
             return self.cv2(torch.cat([x] + [m(x) for m in self.m], 1))
 
 
+class SPPF(nn.Module):
+    # Spatial Pyramid Pooling - Fast (SPPF) layer for YOLOv5 by Glenn Jocher
+    def __init__(self, c1, c2, k=5):  # equivalent to SPP(k=(5, 9, 13))
+        super().__init__()
+        c_ = c1 // 2  # hidden channels
+        self.cv1 = Conv(c1, c_, 1, 1)
+        self.cv2 = Conv(c_ * 4, c2, 1, 1)
+        self.m = nn.MaxPool2d(kernel_size=k, stride=1, padding=k // 2)
+
+    def forward(self, x):
+        x = self.cv1(x)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')  # suppress torch 1.9.0 max_pool2d() warning
+            y1 = self.m(x)
+            y2 = self.m(y1)
+            return self.cv2(torch.cat([x, y1, y2, self.m(y2)], 1))
+
+
 class Focus(nn.Module):
     # Focus wh information into c-space
     def __init__(self, c1, c2, k=1, s=1, p=None, g=1, act=True):  # ch_in, ch_out, kernel, stride, padding, groups
@@ -175,6 +201,34 @@ class Focus(nn.Module):
     def forward(self, x):  # x(b,c,w,h) -> y(b,4c,w/2,h/2)
         return self.conv(torch.cat([x[..., ::2, ::2], x[..., 1::2, ::2], x[..., ::2, 1::2], x[..., 1::2, 1::2]], 1))
         # return self.conv(self.contract(x))
+
+
+class GhostConv(nn.Module):
+    # Ghost Convolution https://github.com/huawei-noah/ghostnet
+    def __init__(self, c1, c2, k=1, s=1, g=1, act=True):  # ch_in, ch_out, kernel, stride, groups
+        super().__init__()
+        c_ = c2 // 2  # hidden channels
+        self.cv1 = Conv(c1, c_, k, s, None, g, act)
+        self.cv2 = Conv(c_, c_, 5, 1, None, c_, act)
+
+    def forward(self, x):
+        y = self.cv1(x)
+        return torch.cat([y, self.cv2(y)], 1)
+
+
+class GhostBottleneck(nn.Module):
+    # Ghost Bottleneck https://github.com/huawei-noah/ghostnet
+    def __init__(self, c1, c2, k=3, s=1):  # ch_in, ch_out, kernel, stride
+        super().__init__()
+        c_ = c2 // 2
+        self.conv = nn.Sequential(GhostConv(c1, c_, 1, 1),  # pw
+                                  DWConv(c_, c_, k, s, act=False) if s == 2 else nn.Identity(),  # dw
+                                  GhostConv(c_, c2, 1, 1, act=False))  # pw-linear
+        self.shortcut = nn.Sequential(DWConv(c1, c1, k, s, act=False),
+                                      Conv(c1, c2, 1, 1, act=False)) if s == 2 else nn.Identity()
+
+    def forward(self, x):
+        return self.conv(x) + self.shortcut(x)
 
 
 class Contract(nn.Module):
@@ -220,6 +274,7 @@ class AutoShape(nn.Module):
     conf = 0.25  # NMS confidence threshold
     iou = 0.45  # NMS IoU threshold
     classes = None  # (optional list) filter by class
+    multi_label = False  # NMS multiple labels per box
     max_det = 1000  # maximum number of detections per image
 
     def __init__(self, model):
@@ -279,7 +334,8 @@ class AutoShape(nn.Module):
             t.append(time_sync())
 
             # Post-process
-            y = non_max_suppression(y, self.conf, iou_thres=self.iou, classes=self.classes, max_det=self.max_det)  # NMS
+            y = non_max_suppression(y, self.conf, iou_thres=self.iou, classes=self.classes,
+                                    multi_label=self.multi_label, max_det=self.max_det)  # NMS
             for i in range(n):
                 scale_coords(shape1, y[i][:, :4], shape0[i])
 
@@ -296,6 +352,7 @@ class Detections:
         self.imgs = imgs  # list of images as numpy arrays
         self.pred = pred  # list of tensors pred[0] = (xyxy, conf, cls)
         self.names = names  # class names
+        self.ascii = is_ascii(names)  # names are ascii (use PIL for UTF-8)
         self.files = files  # image filenames
         self.xyxy = pred  # xyxy pixels
         self.xywh = [xyxy2xywh(x) for x in pred]  # xywh pixels
@@ -306,6 +363,7 @@ class Detections:
         self.s = shape  # inference BCHW shape
 
     def display(self, pprint=False, show=False, save=False, crop=False, render=False, save_dir=Path('')):
+        crops = []
         for i, (im, pred) in enumerate(zip(self.imgs, self.pred)):
             str = f'image {i + 1}/{len(self.pred)}: {im.shape[0]}x{im.shape[1]} '
             if pred.shape[0]:
@@ -313,12 +371,16 @@ class Detections:
                     n = (pred[:, -1] == c).sum()  # detections per class
                     str += f"{n} {self.names[int(c)]}{'s' * (n > 1)}, "  # add to string
                 if show or save or render or crop:
+                    annotator = Annotator(im, pil=not self.ascii)
                     for *box, conf, cls in reversed(pred):  # xyxy, confidence, class
                         label = f'{self.names[int(cls)]} {conf:.2f}'
                         if crop:
-                            save_one_box(box, im, file=save_dir / 'crops' / self.names[int(cls)] / self.files[i])
+                            file = save_dir / 'crops' / self.names[int(cls)] / self.files[i] if save else None
+                            crops.append({'box': box, 'conf': conf, 'cls': cls, 'label': label,
+                                          'im': save_one_box(box, im, file=file, save=save)})
                         else:  # all others
-                            plot_one_box(box, im, label=label, color=colors(cls))
+                            annotator.box_label(box, label, color=colors(cls))
+                    im = annotator.im
             else:
                 str += '(no detections)'
 
@@ -331,9 +393,13 @@ class Detections:
                 f = self.files[i]
                 im.save(save_dir / f)  # save
                 if i == self.n - 1:
-                    LOGGER.info(f"Saved {self.n} image{'s' * (self.n > 1)} to '{save_dir}'")
+                    LOGGER.info(f"Saved {self.n} image{'s' * (self.n > 1)} to {colorstr('bold', save_dir)}")
             if render:
                 self.imgs[i] = np.asarray(im)
+        if crop:
+            if save:
+                LOGGER.info(f'Saved results to {save_dir}\n')
+            return crops
 
     def print(self):
         self.display(pprint=True)  # print results
@@ -347,10 +413,9 @@ class Detections:
         save_dir = increment_path(save_dir, exist_ok=save_dir != 'runs/detect/exp', mkdir=True)  # increment save_dir
         self.display(save=True, save_dir=save_dir)  # save results
 
-    def crop(self, save_dir='runs/detect/exp'):
-        save_dir = increment_path(save_dir, exist_ok=save_dir != 'runs/detect/exp', mkdir=True)  # increment save_dir
-        self.display(crop=True, save_dir=save_dir)  # crop results
-        LOGGER.info(f'Saved results to {save_dir}\n')
+    def crop(self, save=True, save_dir='runs/detect/exp'):
+        save_dir = increment_path(save_dir, exist_ok=save_dir != 'runs/detect/exp', mkdir=True) if save else None
+        return self.display(crop=True, save=save, save_dir=save_dir)  # crop results
 
     def render(self):
         self.display(render=True)  # render results
