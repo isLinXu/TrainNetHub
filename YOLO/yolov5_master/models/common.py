@@ -270,6 +270,7 @@ class Concat(nn.Module):
 
 
 class AutoShape(nn.Module):
+    """将model封装成包含预处理、推理、后处理的模块"""
     # YOLOv5 input-robust model wrapper for passing cv2/np/PIL/torch inputs. Includes preprocessing, inference and NMS
     conf = 0.25  # NMS confidence threshold
     iou = 0.45  # NMS IoU threshold
@@ -303,26 +304,38 @@ class AutoShape(nn.Module):
                 return self.model(imgs.to(p.device).type_as(p), augment, profile)  # inference
 
         # Pre-process
+        # 预处理
         n, imgs = (len(imgs), imgs) if isinstance(imgs, list) else (1, [imgs])  # number of images, list of images
+        # 初始化shape0存储原图shape，shape1存储图片resize之后的shape，files存储图片保存名字
         shape0, shape1, files = [], [], []  # image and inference shapes, filenames
+        # 处理imgs
         for i, im in enumerate(imgs):
             f = f'image{i}'  # filename
+            # 如果传入的是文件名或者是url链接
             if isinstance(im, (str, Path)):  # filename or uri
                 im, f = Image.open(requests.get(im, stream=True).raw if str(im).startswith('http') else im), im
                 im = np.asarray(exif_transpose(im))
+            # 如果格式是Pillow格式
             elif isinstance(im, Image.Image):  # PIL Image
                 im, f = np.asarray(exif_transpose(im)), getattr(im, 'filename', f) or f
+            # 添加图片保存名字，with_suffix('.jpg')表示以jpg为后缀
             files.append(Path(f).with_suffix('.jpg').name)
             if im.shape[0] < 5:  # image in CHW
                 im = im.transpose((1, 2, 0))  # reverse dataloader .transpose(2, 0, 1)
+            # 如果是灰度图，则强制其通道为3, 如果通道数大于3，也强制只取前3个通道
             im = im[..., :3] if im.ndim == 3 else np.tile(im[..., None], 3)  # enforce 3ch input
+            # 添加原图长宽
             s = im.shape[:2]  # HWC
             shape0.append(s)  # image shape
             g = (size / max(s))  # gain
+            # 添加resize之后的长宽
             shape1.append([y * g for y in s])
             imgs[i] = im if im.data.contiguous else np.ascontiguousarray(im)  # update
+        # 保存输入size能够整除stride
         shape1 = [make_divisible(x, int(self.stride.max())) for x in np.stack(shape1, 0).max(0)]  # inference shape
+        # resize + pad
         x = [letterbox(im, new_shape=shape1, auto=False)[0] for im in imgs]  # pad
+        # 将图片在第一维度拼接到一起
         x = np.stack(x, 0) if n > 1 else x[0][None]  # stack
         x = np.ascontiguousarray(x.transpose((0, 3, 1, 2)))  # BHWC to BCHW
         x = torch.from_numpy(x).to(p.device).type_as(p) / 255.  # uint8 to fp16/32
@@ -330,20 +343,24 @@ class AutoShape(nn.Module):
 
         with amp.autocast(enabled=p.device.type != 'cpu'):
             # Inference
+            # 推理
             y = self.model(x, augment, profile)[0]  # forward
             t.append(time_sync())
 
             # Post-process
             y = non_max_suppression(y, self.conf, iou_thres=self.iou, classes=self.classes,
                                     multi_label=self.multi_label, max_det=self.max_det)  # NMS
+            # 反算坐标
             for i in range(n):
                 scale_coords(shape1, y[i][:, :4], shape0[i])
 
             t.append(time_sync())
+            # 将预测封装为Detections
             return Detections(imgs, y, files, t, self.names, x.shape)
 
 
 class Detections:
+    """处理检测结果"""
     # YOLOv5 detections class for inference results
     def __init__(self, imgs, pred, files, times=None, names=None, shape=None):
         super().__init__()
@@ -363,6 +380,7 @@ class Detections:
         self.s = shape  # inference BCHW shape
 
     def display(self, pprint=False, show=False, save=False, crop=False, render=False, save_dir=Path('')):
+        """可视化预测结果"""
         crops = []
         for i, (im, pred) in enumerate(zip(self.imgs, self.pred)):
             str = f'image {i + 1}/{len(self.pred)}: {im.shape[0]}x{im.shape[1]} '
@@ -387,8 +405,10 @@ class Detections:
             im = Image.fromarray(im.astype(np.uint8)) if isinstance(im, np.ndarray) else im  # from np
             if pprint:
                 LOGGER.info(str.rstrip(', '))
+            # 显示预测图
             if show:
                 im.show(self.files[i])  # show
+            # 保存
             if save:
                 f = self.files[i]
                 im.save(save_dir / f)  # save
@@ -401,6 +421,7 @@ class Detections:
                 LOGGER.info(f'Saved results to {save_dir}\n')
             return crops
 
+    # 下面是封装的各种功能的接口
     def print(self):
         self.display(pprint=True)  # print results
         LOGGER.info(f'Speed: %.1fms pre-process, %.1fms inference, %.1fms NMS per image at shape {tuple(self.s)}' %
@@ -418,10 +439,12 @@ class Detections:
         return self.display(crop=True, save=save, save_dir=save_dir)  # crop results
 
     def render(self):
+        """获取ndarray预测图并返回"""
         self.display(render=True)  # render results
         return self.imgs
 
     def pandas(self):
+        """以pandas数据格式返回"""
         # return detections as pandas DataFrames, i.e. print(results.pandas().xyxy[0])
         new = copy(self)  # return copy
         ca = 'xmin', 'ymin', 'xmax', 'ymax', 'confidence', 'class', 'name'  # xyxy columns
@@ -432,6 +455,7 @@ class Detections:
         return new
 
     def tolist(self):
+        """返回一个list，每个元素为一个Detections类，对应一张图片的预测"""
         # return a list of Detections objects, i.e. 'for result in results.tolist():'
         x = [Detections([self.imgs[i]], [self.pred[i]], self.names, self.s) for i in range(self.n)]
         for d in x:

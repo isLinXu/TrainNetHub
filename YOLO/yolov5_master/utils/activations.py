@@ -1,17 +1,21 @@
-# Activation functions
 
+"""
+Activation functions
+激活函数
+"""
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 
 # SiLU https://arxiv.org/pdf/1606.08415.pdf ----------------------------------------------------------------------------
+"""nn.SiLU（）的导出友好版本"""
 class SiLU(nn.Module):  # export-friendly version of nn.SiLU()
     @staticmethod
     def forward(x):
         return x * torch.sigmoid(x)
 
-
+"""nn.Hardswish（）的导出友好版本"""
 class Hardswish(nn.Module):  # export-friendly version of nn.Hardswish()
     @staticmethod
     def forward(x):
