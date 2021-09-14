@@ -25,6 +25,7 @@ from YOLO.yolov5_master.utils.torch_utils import select_device
 
 
 def export_torchscript(model, img, file, optimize):
+    """TorchScript模型导出"""
     # TorchScript model export
     prefix = colorstr('TorchScript:')
     try:
@@ -39,6 +40,7 @@ def export_torchscript(model, img, file, optimize):
 
 
 def export_onnx(model, img, file, opset, train, dynamic, simplify):
+    """ONNX模型导出"""
     # ONNX model export
     prefix = colorstr('ONNX:')
     try:
@@ -82,6 +84,7 @@ def export_onnx(model, img, file, opset, train, dynamic, simplify):
 
 
 def export_coreml(model, img, file):
+    """CoreML模型导出"""
     # CoreML model export
     prefix = colorstr('CoreML:')
     try:
@@ -117,12 +120,14 @@ def run(weights='./yolov5s.pt',  # weights path
     file = Path(weights)
 
     # Load PyTorch model
+    # 加载pt文件
     device = select_device(device)
     assert not (device.type == 'cpu' and half), '--half only compatible with GPU export, i.e. use --device 0'
     model = attempt_load(weights, map_location=device)  # load FP32 model
     names = model.names
 
     # Input
+    # 设置输入大小
     gs = int(max(model.stride))  # grid size (max stride)
     img_size = [check_img_size(x, gs) for x in img_size]  # verify img_size are gs-multiples
     img = torch.zeros(batch_size, 3, *img_size).to(device)  # image size(1,3,320,192) iDetection
@@ -161,6 +166,20 @@ def run(weights='./yolov5s.pt',  # weights path
 
 
 def parse_opt():
+    """
+     weigths: pt文件路径
+     img-size:输入大小
+     batch-size: 批次大小
+     device:设备
+     include: 包括要导出的哪些类型，例如torchscript, onnx, coreml
+     half: 是否使用F16精度
+     inplace: 对应Detect()层的inplace参数
+     train: 是否为模型训练模式
+     optimize: 对应torchscript中对于mobile设备的优化
+     dynamic: ONNX的参数, 是否使用动态shape的输入
+     simplify: 是否使用onnxsim模块进行网络结构的简化
+     opset-version: 设置onnx的op版本
+     """
     parser = argparse.ArgumentParser()
     parser.add_argument('--weights', type=str, default='./yolov5s.pt', help='weights path')
     parser.add_argument('--img-size', nargs='+', type=int, default=[640, 640], help='image (height, width)')
