@@ -173,3 +173,6 @@ class Callbacks:
         Fires all registered callbacks before teardown
         """
         self.run_callbacks('teardown', *args, **kwargs)
+
+    def run(self, param):
+        pass

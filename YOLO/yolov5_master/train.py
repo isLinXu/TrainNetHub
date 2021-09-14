@@ -27,22 +27,22 @@ from tqdm import tqdm
 FILE = Path(__file__).absolute()
 sys.path.append(FILE.parents[0].as_posix())  # add yolov5/ to path
 
-from .val import run # for end-of-epoch mAP
-from .models.experimental import attempt_load
-from .models.yolo import Model
-from .utils.autoanchor import check_anchors
-from .utils.datasets import create_dataloader
-from .utils.general import labels_to_class_weights, increment_path, labels_to_image_weights, init_seeds, \
+from YOLO.yolov5_master.val import run # for end-of-epoch mAP
+from YOLO.yolov5_master.models.experimental import attempt_load
+from YOLO.yolov5_master.models.yolo import Model
+from YOLO.yolov5_master.utils.autoanchor import check_anchors
+from YOLO.yolov5_master.utils.datasets import create_dataloader
+from YOLO.yolov5_master.utils.general import labels_to_class_weights, increment_path, labels_to_image_weights, init_seeds, \
     strip_optimizer, get_latest_run, check_dataset, check_file, check_git_status, check_img_size, \
     check_requirements, print_mutation, set_logging, one_cycle, colorstr, methods
-from .utils.downloads import attempt_download
-from .utils.loss import ComputeLoss
-from .utils.plots import plot_labels, plot_evolve
-from .utils.torch_utils import ModelEMA, select_device, intersect_dicts, torch_distributed_zero_first, de_parallel
-from .utils.loggers.wandb.wandb_utils import check_wandb_resume
-from .utils.metrics import fitness
-from .utils.loggers import Loggers
-from .utils.callbacks import Callbacks
+from YOLO.yolov5_master.utils.downloads import attempt_download
+from YOLO.yolov5_master.utils.loss import ComputeLoss
+from YOLO.yolov5_master.utils.plots import plot_labels, plot_evolve
+from YOLO.yolov5_master.utils.torch_utils import ModelEMA, select_device, intersect_dicts, torch_distributed_zero_first, de_parallel
+from YOLO.yolov5_master.utils.loggers.wandb.wandb_utils import check_wandb_resume
+from YOLO.yolov5_master.utils.metrics import fitness
+from YOLO.yolov5_master.utils.loggers import Loggers
+from YOLO.yolov5_master.utils.callbacks import Callbacks
 
 # 获取日志的一个实例，其中__name__（当前模块的派生名称-->train）为日志记录的用例名
 LOGGER = logging.getLogger(__name__)
@@ -622,7 +622,7 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
             # 如果是coco数据集则单独再测试一次
             if is_coco:  # COCO dataset
                 for m in [last, best] if best.exists() else [last]:  # speed, mAP tests
-                    results, _, _ = val.run(data_dict,
+                    results, _, _ = run(data_dict,
                                             batch_size=batch_size // WORLD_SIZE * 2,
                                             imgsz=imgsz,
                                             model=attempt_load(m, device).half(),
@@ -680,11 +680,11 @@ def parse_opt(known=False):
 
     parser = argparse.ArgumentParser()
     # 预训练权重文件
-    parser.add_argument('--weights', type=str, default='yolov5s.pt', help='initial weights path')
+    parser.add_argument('--weights', type=str, default='weight/yolov5s.pt', help='initial weights path')
     # 训练模型
     parser.add_argument('--cfg', type=str, default='', help='model.yaml path')
     # 训练路径，包括训练集，验证集，测试集的路径，类别总数等
-    parser.add_argument('--data', type=str, default='data/coco128.yaml', help='dataset.yaml path')
+    parser.add_argument('--data', type=str, default='data/voc_tower.yaml', help='dataset.yaml path')
     # 使用的超参数文件
     parser.add_argument('--hyp', type=str, default='data/hyps/hyp.scratch.yaml', help='hyperparameters path')
     # 训练的批次
@@ -763,8 +763,8 @@ def main(opt):
     set_logging(RANK)
     if RANK in [-1, 0]:
         print(colorstr('train: ') + ', '.join(f'{k}={v}' for k, v in vars(opt).items()))
-        check_git_status()
-        check_requirements(requirements=FILE.parent / 'requirements.txt', exclude=['thop'])
+        #check_git_status() # 检查官方git仓库更新状态
+        check_requirements(requirements=FILE.parent / 'support/requirements.txt', exclude=['thop'])
 
     # Resume
     # 是否接着打断上次的结果接着训练

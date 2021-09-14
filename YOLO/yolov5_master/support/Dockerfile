@@ -17,7 +17,7 @@ RUN mkdir -p /usr/src/app
 WORKDIR /usr/src/app
 
 # Copy contents
-COPY . /usr/src/app
+COPY .. /usr/src/app
 
 # Set environment variables
 ENV HOME=/usr/src/app

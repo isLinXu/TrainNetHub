@@ -184,6 +184,7 @@ def check_online():
 
 @try_except
 def check_git_status():
+    # 检查状态
     # Recommend 'git pull' if code is out of date
     msg = ', for updates see https://github.com/ultralytics/yolov5'
     print(colorstr('github: '), end='')

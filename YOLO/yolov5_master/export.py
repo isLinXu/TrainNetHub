@@ -16,12 +16,12 @@ from torch.utils.mobile_optimizer import optimize_for_mobile
 FILE = Path(__file__).absolute()
 sys.path.append(FILE.parents[0].as_posix())  # add yolov5/ to path
 
-from models.common import Conv
-from models.yolo import Detect
-from models.experimental import attempt_load
-from utils.activations import Hardswish, SiLU
-from utils.general import colorstr, check_img_size, check_requirements, file_size, set_logging
-from utils.torch_utils import select_device
+from YOLO.yolov5_master.models.common import Conv
+from YOLO.yolov5_master.models.yolo import Detect
+from YOLO.yolov5_master.models.experimental import attempt_load
+from YOLO.yolov5_master.utils.activations import Hardswish, SiLU
+from YOLO.yolov5_master.utils.general import colorstr, check_img_size, check_requirements, file_size, set_logging
+from YOLO.yolov5_master.utils.torch_utils import select_device
 
 
 def export_torchscript(model, img, file, optimize):
