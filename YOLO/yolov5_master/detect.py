@@ -288,8 +288,8 @@ def parse_opt():
         half:是否使用F16精度推理
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weights', nargs='+', type=str, default='/home/hxzh02/WORK/TrainNetHub/YOLO/yolov5_master/runs/train/bm-yolov5s4/weights/best.pt', help='model.pt path(s)')
-    parser.add_argument('--source', type=str, default='/home/hxzh02/文档/航拍数据集dataset/30.jpg', help='file/dir/URL/glob, 0 for webcam')
+    parser.add_argument('--weights', nargs='+', type=str, default='weight/yolov5s.pt', help='model.pt path(s)')
+    parser.add_argument('--source', type=str, default='data/images', help='file/dir/URL/glob, 0 for webcam')
     parser.add_argument('--imgsz', '--img', '--img-size', type=int, default=640, help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float, default=0.25, help='confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.45, help='NMS IoU threshold')
@@ -325,4 +325,7 @@ def main(opt):
 
 if __name__ == "__main__":
     opt = parse_opt()
+    opt.source = ''
+    opt.weights = ''
     main(opt)
+

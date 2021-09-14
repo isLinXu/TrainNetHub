@@ -1,4 +1,6 @@
-"""Train a YOLOv5 model on a custom dataset
+# YOLOv5 🚀 by Ultralytics, GPL-3.0 license
+"""
+Train a YOLOv5 model on a custom dataset
 
 Usage:
     $ python path/to/train.py --data coco128.yaml --weights yolov5s.pt --img 640
@@ -6,6 +8,7 @@ Usage:
 
 import argparse
 import logging
+import math
 import os
 import random
 import sys
@@ -13,7 +16,6 @@ import time
 from copy import deepcopy
 from pathlib import Path
 
-import math
 import numpy as np
 import torch
 import torch.distributed as dist
@@ -24,21 +26,22 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.optim import Adam, SGD, lr_scheduler
 from tqdm import tqdm
 
-FILE = Path(__file__).absolute()
+FILE = Path(__file__).resolve()
 sys.path.append(FILE.parents[0].as_posix())  # add yolov5/ to path
 
-from YOLO.yolov5_master.val import run # for end-of-epoch mAP
+import YOLO.yolov5_master.val as val # for end-of-epoch mAP
 from YOLO.yolov5_master.models.experimental import attempt_load
 from YOLO.yolov5_master.models.yolo import Model
 from YOLO.yolov5_master.utils.autoanchor import check_anchors
 from YOLO.yolov5_master.utils.datasets import create_dataloader
 from YOLO.yolov5_master.utils.general import labels_to_class_weights, increment_path, labels_to_image_weights, init_seeds, \
-    strip_optimizer, get_latest_run, check_dataset, check_file, check_git_status, check_img_size, \
-    check_requirements, print_mutation, set_logging, one_cycle, colorstr, methods
+    strip_optimizer, get_latest_run, check_dataset, check_git_status, check_img_size, check_requirements, \
+    check_file, check_yaml, check_suffix, print_mutation, set_logging, one_cycle, colorstr, methods
 from YOLO.yolov5_master.utils.downloads import attempt_download
 from YOLO.yolov5_master.utils.loss import ComputeLoss
 from YOLO.yolov5_master.utils.plots import plot_labels, plot_evolve
-from YOLO.yolov5_master.utils.torch_utils import ModelEMA, select_device, intersect_dicts, torch_distributed_zero_first, de_parallel
+from YOLO.yolov5_master.utils.torch_utils import EarlyStopping, ModelEMA, de_parallel, intersect_dicts, select_device, \
+    torch_distributed_zero_first
 from YOLO.yolov5_master.utils.loggers.wandb.wandb_utils import check_wandb_resume
 from YOLO.yolov5_master.utils.metrics import fitness
 from YOLO.yolov5_master.utils.loggers import Loggers
@@ -59,9 +62,8 @@ WORLD_SIZE = int(os.getenv('WORLD_SIZE', 1))
 def train(hyp,  # path/to/hyp.yaml or hyp dictionary
           opt,
           device,
-          callbacks=Callbacks()  # 回调机制
+          callbacks
           ):
-    global ckpt
     save_dir, epochs, batch_size, weights, single_cls, evolve, data, cfg, resume, noval, nosave, workers, freeze, = \
         Path(opt.save_dir), opt.epochs, opt.batch_size, opt.weights, opt.single_cls, opt.evolve, opt.data, opt.cfg, \
         opt.resume, opt.noval, opt.nosave, opt.workers, opt.freeze
@@ -141,55 +143,23 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
     assert len(names) == nc, f'{len(names)} names found for nc={nc} dataset in {data}'  # check
     is_coco = data.endswith('coco.yaml') and nc == 80  # COCO dataset
 
-    '''
-    加载模型
-    '''
     # Model
+    check_suffix(weights, '.pt')  # check weights
     pretrained = weights.endswith('.pt')
-    # 采用预训练
     if pretrained:
-        # 加载模型，从google云盘或github上自动下载模型
-        # 但通常会下载失败，建议提前下载下来放进weights目录
         with torch_distributed_zero_first(RANK):
             weights = attempt_download(weights)  # download if not found locally
-        # 加载检查点
         ckpt = torch.load(weights, map_location=device)  # load checkpoint
-
-        """
-        这里模型创建，可通过opt.cfg，也可通过ckpt['model'].yaml
-        这里的区别在于是否是resume，resume时会将opt.cfg设为空，
-        则按照ckpt['model'].yaml创建模型；
-        这也影响着下面是否除去anchor的key(也就是不加载anchor)，
-        如果resume，则加载权重中保存的anchor来继续训练；
-        主要是预训练权重里面保存了默认coco数据集对应的anchor，
-        如果用户自定义了anchor，再加载预训练权重进行训练，会覆盖掉用户自定义的anchor；
-        所以这里主要是设定一个，如果加载预训练权重进行训练的话，就去除掉权重中的anchor，采用用户自定义的；
-        如果是resume的话，就是不去除anchor，就权重和anchor一起加载， 接着训练；
-        参考https://github.com/ultralytics/yolov5/issues/459
-        所以下面设置了intersect_dicts，该函数就是忽略掉exclude中的键对应的值
-        """
-
         model = Model(cfg or ckpt['model'].yaml, ch=3, nc=nc, anchors=hyp.get('anchors')).to(device)  # create
-        # 如果opt.cfg存在(表示采用预训练权重进行训练)就设置去除anchor
         exclude = ['anchor'] if (cfg or hyp.get('anchors')) and not resume else []  # exclude keys
         csd = ckpt['model'].float().state_dict()  # checkpoint state_dict as FP32
         csd = intersect_dicts(csd, model.state_dict(), exclude=exclude)  # intersect
         model.load_state_dict(csd, strict=False)  # load
-        # 显示加载预训练权重的的键值对和创建模型的键值对
-        # 如果设置了resume，则会少加载两个键值对(anchors,anchor_grid)
         LOGGER.info(f'Transferred {len(csd)}/{len(model.state_dict())} items from {weights}')  # report
     else:
-        # 创建模型，ch为输入图片通道
         model = Model(cfg, ch=3, nc=nc, anchors=hyp.get('anchors')).to(device)  # create
 
     # Freeze
-    """
-    冻结模型层,设置冻结层名字即可。使得这些层在反向传播的时候不再更新权重,需要冻结的层,可以写在freeze列表中
-    具体可以查看https://github.com/ultralytics/yolov5/issues/679
-    但作者不鼓励冻结层,因为他的实验当中显示冻结层不能获得更好的性能,参照:https://github.com/ultralytics/yolov5/pull/707
-    并且作者为了使得优化参数分组可以正常进行,在下面将所有参数的requires_grad设为了True
-    其实这里只是给一个freeze的示例
-    """
     freeze = [f'model.{x}.' for x in range(freeze)]  # layers to freeze
     for k, v in model.named_parameters():
         v.requires_grad = True  # train all layers
@@ -197,24 +167,13 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
             print(f'freezing {k}')
             v.requires_grad = False
 
-    '''
-    nbs为模拟的batch_size，也就是名义批次,比如实际批次为16,那么64/16=4,每4次迭代，才进行一次反向传播更新权重，可以节约显存。
-    就比如默认的话上面设置的opt.batch_size为16,这个nbs就为64，
-    也就是模型梯度累积了64/16=4(accumulate)次之后
-    再更新一次模型，变相的扩大了batch_size
-    '''
     # Optimizer
     nbs = 64  # nominal batch size
     accumulate = max(round(nbs / batch_size), 1)  # accumulate loss before optimizing
-    # 根据accumulate设置权重衰减系数
     hyp['weight_decay'] *= batch_size * accumulate / nbs  # scale weight_decay
     LOGGER.info(f"Scaled weight_decay = {hyp['weight_decay']}")
 
-    '''
-    设置优化器，权重weight使用了正则化,偏置bias则不使用正则化
-    '''
     g0, g1, g2 = [], [], []  # optimizer parameter groups
-    # 将模型分成三组(weight、bn, bias, 其他所有参数)优化
     for v in model.modules():
         if hasattr(v, 'bias') and isinstance(v.bias, nn.Parameter):  # bias
             g2.append(v.bias)
@@ -223,13 +182,11 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
         elif hasattr(v, 'weight') and isinstance(v.weight, nn.Parameter):  # weight (with decay)
             g1.append(v.weight)
 
-    # 选用优化器，并设置g0组的优化方式
     if opt.adam:
         optimizer = Adam(g0, lr=hyp['lr0'], betas=(hyp['momentum'], 0.999))  # adjust beta1 to momentum
     else:
         optimizer = SGD(g0, lr=hyp['lr0'], momentum=hyp['momentum'], nesterov=True)
 
-    # 设置weight、bn的优化方式
     optimizer.add_param_group({'params': g1, 'weight_decay': hyp['weight_decay']})  # add g1 with weight_decay
     # 设置biases的优化方式
     optimizer.add_param_group({'params': g2})  # add g2 (biases)
@@ -341,12 +298,7 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
                                               hyp=hyp, augment=True, cache=opt.cache, rect=opt.rect, rank=RANK,
                                               workers=workers, image_weights=opt.image_weights, quad=opt.quad,
                                               prefix=colorstr('train: '))
-
-    '''
-    检验加载的数据集是否正确:  利用数据集标签中的最大类别<nc（类别数）
-    如果大于类别数则表示有问题
-    '''
-    mlc = np.concatenate(dataset.labels, 0)[:, 0].max()  # max label class
+    mlc = int(np.concatenate(dataset.labels, 0)[:, 0].max())  # max label class
     nb = len(train_loader)  # number of batches
     assert mlc < nc, f'Label class {mlc} exceeds nc={nc} in {data}. Possible class labels are 0-{nc - 1}'
 
@@ -378,8 +330,7 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
                 check_anchors(dataset, model=model, thr=hyp['anchor_t'], imgsz=imgsz)
             model.half().float()  # pre-reduce anchor precision
 
-        # 在每个训练前例行程序结束时触发所有已注册的回调
-        callbacks.on_pretrain_routine_end()
+        callbacks.run('on_pretrain_routine_end')
 
     # DDP mode
     # 如果rank不等于-1,则使用DistributedDataParallel模式
@@ -427,7 +378,7 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
     scheduler.last_epoch = start_epoch - 1  # do not move
     # 通过torch自带的api设置混合精度训练
     scaler = amp.GradScaler(enabled=cuda)
-    # 初始化声明计算损失的实例
+    stopper = EarlyStopping(patience=opt.patience)
     compute_loss = ComputeLoss(model)  # init loss class
 
     """
@@ -438,12 +389,12 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
     """
     LOGGER.info(f'Image sizes {imgsz} train, {imgsz} val\n'
                 f'Using {train_loader.num_workers} dataloader workers\n'
-                f'Logging results to {save_dir}\n'
+                f"Logging results to {colorstr('bold', save_dir)}\n"
                 f'Starting training for {epochs} epochs...')
     for epoch in range(start_epoch, epochs):  # epoch ------------------------------------------------------------------
         model.train()
 
-        # Update image weights (optional)
+        # Update image weights (optional, single-GPU only)
         if opt.image_weights:
             # Generate indices
             """
@@ -451,18 +402,9 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
             则根据前面初始化的图片采样权重model.class_weights以及maps配合每张图片包含的类别数
             通过random.choices生成图片索引indices从而进行采样
             """
-            if RANK in [-1, 0]:
-                cw = model.class_weights.cpu().numpy() * (1 - maps) ** 2 / nc  # class weights
-                iw = labels_to_image_weights(dataset.labels, nc=nc, class_weights=cw)  # image weights
-                dataset.indices = random.choices(range(dataset.n), weights=iw, k=dataset.n)  # rand weighted idx
-            # Broadcast if DDP
-            # 如果是DDP模式,则广播采样策略
-            if RANK != -1:
-                indices = (torch.tensor(dataset.indices) if RANK == 0 else torch.zeros(dataset.n)).int()
-                dist.broadcast(indices, 0)
-                # 广播索引到其他group
-                if RANK != 0:
-                    dataset.indices = indices.cpu().numpy()
+            cw = model.class_weights.cpu().numpy() * (1 - maps) ** 2 / nc  # class weights
+            iw = labels_to_image_weights(dataset.labels, nc=nc, class_weights=cw)  # image weights
+            dataset.indices = random.choices(range(dataset.n), weights=iw, k=dataset.n)  # rand weighted idx
 
         # Update mosaic border
         # b = int(random.uniform(0.25 * imgsz, 0.75 * imgsz + gs) // gs * gs)
@@ -554,7 +496,7 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
                 # 进度条显示以上信息
                 pbar.set_description(('%10s' * 2 + '%10.4g' * 5) % (
                     f'{epoch}/{epochs - 1}', mem, *mloss, targets.shape[0], imgs.shape[-1]))
-                callbacks.on_train_batch_end(ni, model, imgs, targets, paths, plots)
+                callbacks.run('on_train_batch_end', ni, model, imgs, targets, paths, plots, opt.sync_bn)
             # end batch ------------------------------------------------------------------------------------------------
 
         # Scheduler
@@ -564,16 +506,14 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
 
         if RANK in [-1, 0]:
             # mAP
-            callbacks.on_train_epoch_end(epoch=epoch)
-            # 更新EMA的属性
-            # 添加include的属性
+            callbacks.run('on_train_epoch_end', epoch=epoch)
             ema.update_attr(model, include=['yaml', 'nc', 'hyp', 'names', 'stride', 'class_weights'])
             # 判断该epoch是否为最后一轮
             final_epoch = epoch + 1 == epochs
             # 对测试集进行测试，计算mAP等指标
             # 测试时使用的是EMA模型
             if not noval or final_epoch:  # Calculate mAP
-                results, maps, _ = run(data_dict,
+                results, maps, _ = val.run(data_dict,
                                            batch_size=batch_size // WORLD_SIZE * 2,
                                            imgsz=imgsz,
                                            model=ema.ema,
@@ -592,7 +532,7 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
             if fi > best_fitness:
                 best_fitness = fi
             log_vals = list(mloss) + list(results) + lr
-            callbacks.on_fit_epoch_end(log_vals, epoch, best_fitness, fi)
+            callbacks.run('on_fit_epoch_end', log_vals, epoch, best_fitness, fi)
 
             """
             保存模型，这里是model与ema都保存了的，还保存了epoch，results，optimizer等信息，
@@ -612,7 +552,21 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
                 if best_fitness == fi:
                     torch.save(ckpt, best)
                 del ckpt
-                callbacks.on_model_save(last, epoch, final_epoch, best_fitness, fi)
+                callbacks.run('on_model_save', last, epoch, final_epoch, best_fitness, fi)
+
+            # Stop Single-GPU
+            if RANK == -1 and stopper(epoch=epoch, fitness=fi):
+                break
+
+            # Stop DDP TODO: known issues shttps://github.com/ultralytics/yolov5/pull/4576
+            # stop = stopper(epoch=epoch, fitness=fi)
+            # if RANK == 0:
+            #    dist.broadcast_object_list([stop], 0)  # broadcast 'stop' to all ranks
+
+        # Stop DPP
+        # with torch_distributed_zero_first(RANK):
+        # if stop:
+        #    break  # must break all DDP ranks
 
         # end epoch ----------------------------------------------------------------------------------------------------
     # end training -----------------------------------------------------------------------------------------------------
@@ -622,7 +576,7 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
             # 如果是coco数据集则单独再测试一次
             if is_coco:  # COCO dataset
                 for m in [last, best] if best.exists() else [last]:  # speed, mAP tests
-                    results, _, _ = run(data_dict,
+                    results, _, _ = val.run(data_dict,
                                             batch_size=batch_size // WORLD_SIZE * 2,
                                             imgsz=imgsz,
                                             model=attempt_load(m, device).half(),
@@ -641,7 +595,7 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
             for f in last, best:
                 if f.exists():
                     strip_optimizer(f)  # strip optimizers
-        callbacks.on_train_end(last, best, plots, epoch)
+        callbacks.run('on_train_end', last, best, plots, epoch)
         LOGGER.info(f"Results saved to {colorstr('bold', save_dir)}")
 
     # 释放显存
@@ -684,7 +638,7 @@ def parse_opt(known=False):
     # 训练模型
     parser.add_argument('--cfg', type=str, default='', help='model.yaml path')
     # 训练路径，包括训练集，验证集，测试集的路径，类别总数等
-    parser.add_argument('--data', type=str, default='data/voc_tower.yaml', help='dataset.yaml path')
+    parser.add_argument('--data', type=str, default='data/coco128.yaml', help='dataset.yaml path')
     # 使用的超参数文件
     parser.add_argument('--hyp', type=str, default='data/hyps/hyp.scratch.yaml', help='hyperparameters path')
     # 训练的批次
@@ -749,21 +703,19 @@ def parse_opt(known=False):
     parser.add_argument('--local_rank', type=int, default=-1, help='DDP parameter, do not modify')
     # 要冻结的层数
     parser.add_argument('--freeze', type=int, default=0, help='Number of layers to freeze. backbone=10, all=24')
+    parser.add_argument('--patience', type=int, default=100, help='EarlyStopping patience (epochs without improvement)')
     opt = parser.parse_known_args()[0] if known else parser.parse_args()
     return opt
 
 
-'''
-main()函数
-'''
-def main(opt):
+def main(opt, callbacks=Callbacks()):
     # Checks
     # 以下使用的函数为utils/general.py文件内定义的
     # 初始化logging
     set_logging(RANK)
     if RANK in [-1, 0]:
         print(colorstr('train: ') + ', '.join(f'{k}={v}' for k, v in vars(opt).items()))
-        #check_git_status() # 检查官方git仓库更新状态
+        # check_git_status() # 检查官方git仓库更新状态
         check_requirements(requirements=FILE.parent / 'support/requirements.txt', exclude=['thop'])
 
     # Resume
@@ -784,18 +736,14 @@ def main(opt):
             opt = argparse.Namespace(**yaml.safe_load(f))  # replace
         # opt.cfg设置为'' 对应着train函数里面的操作(加载权重时是否加载权重里的anchor)
         opt.cfg, opt.weights, opt.resume = '', ckpt, True  # reinstate # 恢复训练
-        LOGGER.info(f'Resuming training from {ckpt}') # 打印从ckpt恢复训练的日志
+        LOGGER.info(f'Resuming training from {ckpt}')  # 打印从ckpt恢复训练的日志
     else:
-        # 检查配置文件信息
-        # check_file （utils/general.py）的作用为查找/下载文件 并返回该文件的路径。
-        opt.data, opt.cfg, opt.hyp = check_file(opt.data), check_file(opt.cfg), check_file(opt.hyp)  # check files
-        # 如果模型文件和权重文件为空，弹出警告
+        opt.data, opt.cfg, opt.hyp = check_file(opt.data), check_yaml(opt.cfg), check_yaml(opt.hyp)  # check YAMLs
         assert len(opt.cfg) or len(opt.weights), 'either --cfg or --weights must be specified'
         # 如果要进行超参数进化，重建保存路径
         if opt.evolve:
             opt.project = 'runs/evolve'
             opt.exist_ok = opt.resume
-        # increment_path （utils/general.py） 使文件名递增的函数，默认opt.exist_ok为false
         opt.save_dir = str(increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok))
 
     # DDP mode  -->  支持多机多卡、分布式训练
@@ -807,69 +755,66 @@ def main(opt):
         assert opt.batch_size % WORLD_SIZE == 0, '--batch-size must be multiple of CUDA device count'
         assert not opt.image_weights, '--image-weights argument is not compatible with DDP training'
         assert not opt.evolve, '--evolve argument is not compatible with DDP training'
-        assert not opt.sync_bn, '--sync-bn known training issue, see https://github.com/ultralytics/yolov5/issues/3998'
         # 根据gpu编号选择设备
         torch.cuda.set_device(LOCAL_RANK)
         device = torch.device('cuda', LOCAL_RANK)
-        # 初始化进程组
-        dist.init_process_group(backend="nccl" if dist.is_nccl_available() else "gloo", timeout=timedelta(seconds=60))
+        dist.init_process_group(backend="nccl" if dist.is_nccl_available() else "gloo")
 
     '''
     训练模式: 如果不进行超参数进化，则直接调用train()函数，开始训练
     '''
     # Train
     if not opt.evolve:
-        train(opt.hyp, opt, device)
+        train(opt.hyp, opt, device, callbacks)
         if WORLD_SIZE > 1 and RANK == 0:
             _ = [print('Destroying process group... ', end=''), dist.destroy_process_group(), print('Done.')]
 
-    # 进化超参数
     # Evolve hyperparameters (optional)
+    # 进化超参数
     else:
         # Hyperparameter evolution metadata (mutation scale 0-1, lower_limit, upper_limit)
-        # 超参数进化列表,括号里分别为(突变规模, 最小值,最大值)
         '''
-            'lr0':初始化学习率
-            'lrf':周期性学习率
-            'momentum':动量(使用SGD/Adam beta1)
-                动量的引入就是为了加快学习过程，特别是对于高曲率、小但一致的梯度，
-                或者噪声比较大的梯度能够很好的加快学习过程。
-                动量的主要思想是积累了之前梯度指数级衰减的移动平均（前面的指数加权平均）。
-            'weight_decay':权重衰减优化器，神经网络经常加入weight decay来防止过拟合
-            'warmup_epochs':预热周期
-            'warmup_momentum'：预热初始化动量
-            'warmup_bias_lr':预热偏置学习率
-            'box'：预测框位置box的loss
-            'cls'：类别误差loss
-                如果是单类的情况，cls loss=0
-                如果是多类的情况，也分两个模式：
-                如果采用default模式，使用的是BCEWithLogitsLoss计算class loss。
-                如果采用CE模式，使用的是CrossEntropy同时计算obj loss和cls loss。
-            'cls_pw':二分类交叉熵（Binary Cross Entropy）损失函数正向权重
-            'obj':obj代表置信度，即该bounding box中是否含有物体的概率。
-                置信度带来的误差，也就是obj带来的loss(按像素缩放)
-            'obj_pw':关于obj置信度的BCELoss损失函数反向权重
-            'iou_t': #IoU训练阈值
-                IoU 的全称为交并比（Intersection over Union）。
-                顾名思义，IoU 计算的是 “预测的边框” 和 “真实的边框” 的交集和并集的比值。
-            'anchor_t':anchor机制下的多锚定阈值
-            'anchors':每个输出栅格的定位（忽略0）
-            'fl_gamma':Focal loss gamma伽马参数(设置有效伽马参数默认为1.5)
-                Focal loss主要是为了解决one-stage目标检测中正负样本比例严重失衡的问题。
-                该损失函数降低了大量简单负样本在训练中所占的权重，也可理解为一种困难样本挖掘。
-            'hsv_h':图像HSV-色调(Hue)色调增强（分数fraction）
-            'hsv_s':图像HSV-饱和度(Saturation)增强（分数fraction）
-            'hsv_v':图像HSV-明度(Value)增强（分数fraction）
-            'degrees':图像旋转(+/- deg角度)
-            'translate':图像位移 (+/- 分数fraction)
-            'scale':图像放缩(+/- 增益gain)
-            'shear':图像错切(+/- deg角度)
-            'perspective':图像透视变换(+/- fraction), range 0-0.001
-            'flipud':按照一定概率进行图像上下翻转
-            'fliplr':按照一定概率进行图像左右翻转
-            'mosaic':按照一定概率进行图像混合(概率)
-            'mixup':按照一定概率进行图像混合(概率)
-            'copy_paste':# 按照一定概率进行分割复制粘贴
+        'lr0':初始化学习率
+        'lrf':周期性学习率
+        'momentum':动量(使用SGD/Adam beta1)
+            动量的引入就是为了加快学习过程，特别是对于高曲率、小但一致的梯度，
+            或者噪声比较大的梯度能够很好的加快学习过程。
+            动量的主要思想是积累了之前梯度指数级衰减的移动平均（前面的指数加权平均）。
+        'weight_decay':权重衰减优化器，神经网络经常加入weight decay来防止过拟合
+        'warmup_epochs':预热周期
+        'warmup_momentum'：预热初始化动量
+        'warmup_bias_lr':预热偏置学习率
+        'box'：预测框位置box的loss
+        'cls'：类别误差loss
+            如果是单类的情况，cls loss=0
+            如果是多类的情况，也分两个模式：
+            如果采用default模式，使用的是BCEWithLogitsLoss计算class loss。
+            如果采用CE模式，使用的是CrossEntropy同时计算obj loss和cls loss。
+        'cls_pw':二分类交叉熵（Binary Cross Entropy）损失函数正向权重
+        'obj':obj代表置信度，即该bounding box中是否含有物体的概率。
+            置信度带来的误差，也就是obj带来的loss(按像素缩放)
+        'obj_pw':关于obj置信度的BCELoss损失函数反向权重
+        'iou_t': #IoU训练阈值
+            IoU 的全称为交并比（Intersection over Union）。
+            顾名思义，IoU 计算的是 “预测的边框” 和 “真实的边框” 的交集和并集的比值。
+        'anchor_t':anchor机制下的多锚定阈值
+        'anchors':每个输出栅格的定位（忽略0）
+        'fl_gamma':Focal loss gamma伽马参数(设置有效伽马参数默认为1.5)
+            Focal loss主要是为了解决one-stage目标检测中正负样本比例严重失衡的问题。
+            该损失函数降低了大量简单负样本在训练中所占的权重，也可理解为一种困难样本挖掘。
+        'hsv_h':图像HSV-色调(Hue)色调增强（分数fraction）
+        'hsv_s':图像HSV-饱和度(Saturation)增强（分数fraction）
+        'hsv_v':图像HSV-明度(Value)增强（分数fraction）
+        'degrees':图像旋转(+/- deg角度)
+        'translate':图像位移 (+/- 分数fraction)
+        'scale':图像放缩(+/- 增益gain)
+        'shear':图像错切(+/- deg角度)
+        'perspective':图像透视变换(+/- fraction), range 0-0.001
+        'flipud':按照一定概率进行图像上下翻转
+        'fliplr':按照一定概率进行图像左右翻转
+        'mosaic':按照一定概率进行图像混合(概率)
+        'mixup':按照一定概率进行图像混合(概率)
+        'copy_paste':# 按照一定概率进行分割复制粘贴
         '''
         meta = {'lr0': (1, 1e-5, 1e-1),  # initial learning rate (SGD=1E-2, Adam=1E-3)
                 'lrf': (1, 0.01, 1.0),  # final OneCycleLR learning rate (lr0 * lrf)
@@ -900,6 +845,7 @@ def main(opt):
                 'mosaic': (1, 0.0, 1.0),  # image mixup (probability)
                 'mixup': (1, 0.0, 1.0),  # image mixup (probability)
                 'copy_paste': (1, 0.0, 1.0)}  # segment copy-paste (probability)
+
         # 加载默认超参数
         with open(opt.hyp) as f:
             hyp = yaml.safe_load(f)  # load hyps dict
@@ -914,15 +860,15 @@ def main(opt):
             os.system(f'gsutil cp gs://{opt.bucket}/evolve.csv {save_dir}')  # download evolve.csv if exists
 
         """
-            这里的进化算法是：根据之前训练时的hyp来确定一个base hyp再进行突变；
-            如何根据？通过之前每次进化得到的results来确定之前每个hyp的权重
-            有了每个hyp和每个hyp的权重之后有两种进化方式；
-            1.根据每个hyp的权重随机选择一个之前的hyp作为base hyp，random.choices(range(n), weights=w)
-            2.根据每个hyp的权重对之前所有的hyp进行融合获得一个base hyp，(x * w.reshape(n, 1)).sum(0) / w.sum()
-            evolve.txt会记录每次进化之后的results+hyp
-            每次进化时，hyp会根据之前的results进行从大到小的排序；
-            再根据fitness函数计算之前每次进化得到的hyp的权重
-            再确定哪一种进化方式，从而进行进化
+        这里的进化算法是：根据之前训练时的hyp来确定一个base hyp再进行突变；
+        如何根据？通过之前每次进化得到的results来确定之前每个hyp的权重
+        有了每个hyp和每个hyp的权重之后有两种进化方式；
+        1.根据每个hyp的权重随机选择一个之前的hyp作为base hyp，random.choices(range(n), weights=w)
+        2.根据每个hyp的权重对之前所有的hyp进行融合获得一个base hyp，(x * w.reshape(n, 1)).sum(0) / w.sum()
+        evolve.txt会记录每次进化之后的results+hyp
+        每次进化时，hyp会根据之前的results进行从大到小的排序；
+        再根据fitness函数计算之前每次进化得到的hyp的权重
+        再确定哪一种进化方式，从而进行进化
         """
         for _ in range(opt.evolve):  # generations to evolve
             if evolve_csv.exists():  # if evolve.csv exists: select best hyps and mutate
@@ -942,14 +888,12 @@ def main(opt):
                     x = x[random.choices(range(n), weights=w)[0]]  # weighted selection
                 elif parent == 'weighted':
                     x = (x * w.reshape(n, 1)).sum(0) / w.sum()  # weighted combination
-
                 # 超参数进化
                 # Mutate
                 mp, s = 0.8, 0.2  # mutation probability, sigma
                 npr = np.random
                 npr.seed(int(time.time()))
-                # 获取突变初始值
-                g = np.array([x[0] for x in meta.values()])  # gains 0-1
+                g = np.array([meta[k][0] for k in hyp.keys()])  # gains 0-1
                 ng = len(meta)
                 v = np.ones(ng)
                 # 设置突变
@@ -960,29 +904,29 @@ def main(opt):
                 for i, k in enumerate(hyp.keys()):  # plt.hist(v.ravel(), 300)
                     hyp[k] = float(x[i + 7] * v[i])  # mutate
 
-            # Constrain to limits
             '''
             修剪hyp在规定范围里
             为了防止突变过程，导致参数出现明显不合理的范围，
             需要用一个范围进行框定，将超出范围的内容剪切掉。
             具体方法如下
             '''
+            # Constrain to limits
             for k, v in meta.items():
                 hyp[k] = max(hyp[k], v[1])  # lower limit
                 hyp[k] = min(hyp[k], v[2])  # upper limit
                 hyp[k] = round(hyp[k], 5)  # significant digits
 
             # Train mutation
-            # 训练变化
-            results = train(hyp.copy(), opt, device)
+            results = train(hyp.copy(), opt, device, callbacks)
 
             # Write mutation results
             """
-                写入results和对应的hyp到evolve.txt
-                evolve.txt文件每一行为一次进化的结果
-                 一行中前七个数字为(P, R, mAP, F1, val_losses=(box, obj, cls))，之后为hyp
-                保存hyp到yaml文件
+            写入results和对应的hyp到evolve.txt
+            evolve.txt文件每一行为一次进化的结果
+            一行中前七个数字为(P, R, mAP, F1, val_losses=(box, obj, cls))，之后为hyp
+            保存hyp到yaml文件
             """
+            # Write mutation results
             print_mutation(results, hyp.copy(), save_dir, opt.bucket)
 
         # Plot results
@@ -996,6 +940,7 @@ def main(opt):
 def run(**kwargs):
     # Usage: import train; train.run(data='coco128.yaml', imgsz=320, weights='yolov5m.pt')
     # 封装train接口
+    # Usage: import train; train.run(data='coco128.yaml', imgsz=320, weights='yolov5m.pt')
     opt = parse_opt(True)
     for k, v in kwargs.items():
         setattr(opt, k, v)
@@ -1004,4 +949,12 @@ def run(**kwargs):
 
 if __name__ == "__main__":
     opt = parse_opt()
+    # 重设自定义参数
+    opt.data = 'data/voc_tower.yaml'
+    opt.cfg = 'models/yolov5s_tower.yaml'
+    opt.weight = 'weights/yolov5s.pt'
+    opt.batch_size = 16
+    opt.epochs = 100
+    opt.workers = 4
+    opt.name = 'tower_yolov5s'
     main(opt)
