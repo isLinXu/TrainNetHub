@@ -325,7 +325,12 @@ def main(opt):
 
 if __name__ == "__main__":
     opt = parse_opt()
-    opt.source = ''
-    opt.weights = ''
+    opt.source = '/home/hxzh02/文档/航拍数据集/VOCdevkit_tower_part/JPEGImages/2040.jpg'
+    opt.weights = '/home/hxzh02/PycharmProjects/TrainNetHub/YOLO/yolov5_master/runs/train/tower_yolov5s16/weights/best.pt'
+    opt.view_img = True
+    src = cv2.imread(opt.source)
+    cv2.imshow('src', src)
     main(opt)
+    cv2.waitKey()
+
 
