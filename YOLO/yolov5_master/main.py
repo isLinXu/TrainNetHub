@@ -59,4 +59,4 @@ if __name__ == '__main__':
     train_()
 
     # 模型预测
-    detect_()
+    # detect_()
