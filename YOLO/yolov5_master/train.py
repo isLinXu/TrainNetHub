@@ -603,7 +603,7 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
     return results
 
 
-def parse_opt(known=False):
+def train_parse_opt(known=False):
     """
      opt参数解析：
      cfg:                               模型配置文件，网络结构
@@ -708,7 +708,7 @@ def parse_opt(known=False):
     return opt
 
 
-def main(opt, callbacks=Callbacks()):
+def train_main(opt, callbacks=Callbacks()):
     # Checks
     # 以下使用的函数为utils/general.py文件内定义的
     # 初始化logging
@@ -941,14 +941,14 @@ def run(**kwargs):
     # Usage: import train; train.run(data='coco128.yaml', imgsz=320, weights='yolov5m.pt')
     # 封装train接口
     # Usage: import train; train.run(data='coco128.yaml', imgsz=320, weights='yolov5m.pt')
-    opt = parse_opt(True)
+    opt = train_parse_opt(True)
     for k, v in kwargs.items():
         setattr(opt, k, v)
-    main(opt)
+    train_main(opt)
 
 
 if __name__ == "__main__":
-    opt = parse_opt()
+    opt = train_parse_opt()
     # 重设自定义参数
     opt.data = 'data/voc_tower.yaml'
     opt.cfg = 'models/yolov5s_tower.yaml'
@@ -957,4 +957,4 @@ if __name__ == "__main__":
     opt.epochs = 100
     opt.workers = 4
     opt.name = 'tower_yolov5s'
-    main(opt)
+    train_main(opt)

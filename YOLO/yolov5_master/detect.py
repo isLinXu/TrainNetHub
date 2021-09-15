@@ -260,7 +260,7 @@ def run(weights='yolov5s.pt',  # model.pt path(s)
     print(f'Done. ({time.time() - t0:.3f}s)')
 
 
-def parse_opt():
+def detect_parse_opt():
     """
         weights:训练的权重
         source:测试数据，可以是图片/视频路径，也可以是'0'(电脑自带摄像头),也可以是rtsp等视频流
@@ -316,7 +316,7 @@ def parse_opt():
     return opt
 
 
-def main(opt):
+def detect_main(opt):
     print(colorstr('detect: ') + ', '.join(f'{k}={v}' for k, v in vars(opt).items()))
     # 检查环境
     check_requirements(exclude=('tensorboard', 'thop'))
@@ -324,13 +324,10 @@ def main(opt):
 
 
 if __name__ == "__main__":
-    opt = parse_opt()
+    opt = detect_parse_opt()
     opt.source = '/home/hxzh02/文档/航拍数据集/VOCdevkit_tower_part/JPEGImages/2040.jpg'
     opt.weights = '/home/hxzh02/PycharmProjects/TrainNetHub/YOLO/yolov5_master/runs/train/tower_yolov5s16/weights/best.pt'
-    opt.view_img = True
-    src = cv2.imread(opt.source)
-    cv2.imshow('src', src)
-    main(opt)
-    cv2.waitKey()
+    opt.view_img = False
+    detect_main(opt)
 
 
