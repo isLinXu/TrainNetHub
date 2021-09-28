@@ -25,27 +25,47 @@ from YOLO.yolov5_master.utils.torch_utils import select_device, load_classifier,
 
 
 @torch.no_grad()
-def run(weights='yolov5s.pt',  # model.pt path(s)
+def run(
+        # source(⭐) 指定权重文件
+        weights='yolov5s.pt',  # model.pt path(s)
+        # source(⭐) 指定检测来源,传文件路径或者URL,0为摄像头
         source='data/images',  # file/dir/URL/glob, 0 for webcam
+        # img-size 指定推理图片分辨率，默认640
         imgsz=640,  # inference size (pixels)
+        # conf-thres 指定置信度阈值，默认0.4，也可使用--conf
         conf_thres=0.25,  # confidence threshold
+        # iou-thres指定NMS(非极大值抑制)的IOU阈值，默认0.5
         iou_thres=0.45,  # NMS IOU threshold
         max_det=1000,  # maximum detections per image
+        # device 指定设备，如--device 0 --device 0,1,2,3 --device cpu
         device='',  # cuda device, i.e. 0 or 0,1,2,3 or cpu
         view_img=False,  # show results
+        # 输出标签结果(yolo格式)
         save_txt=False,  # save results to *.txt
+        # 在输出标签结果txt中同样写入每个目标的置信度
         save_conf=False,  # save confidences in --save-txt labels
+        # 保存预测框剪切boxes
         save_crop=False,  # save cropped prediction boxes
         nosave=False,  # do not save images/videos
+        # classes 只检测特定的类，如--classes 0 2 4 6 8
         classes=None,  # filter by class: --class 0, or --class 0 2 3
+        # 使用agnostic NMS(前背景)
         agnostic_nms=False,  # class-agnostic NMS
+        # 增强识别，速度会慢不少
         augment=False,  # augmented inference
+        # 可视化特征
         visualize=False,  # visualize features
+        # 更新所有模型
         update=False,  # update all models
+        # project 指定结果存放路径
         project='runs/detect',  # save results to project/name
+        # 指定结果存放名,默认exp
         name='exp',  # save results to project/name
+        # exist-ok 若重名不覆盖
         exist_ok=False,  # existing project/name ok, do not increment
+        # bounding box框体粗细
         line_thickness=3,  # bounding box thickness (pixels)
+        # 隐藏层相关
         hide_labels=False,  # hide labels
         hide_conf=False,  # hide confidences
         half=False,  # use FP16 half-precision inference
@@ -212,7 +232,16 @@ def run(weights='yolov5s.pt',  # model.pt path(s)
                     if save_img or save_crop or view_img:  # Add bbox to image
                         c = int(cls)  # integer class
                         label = None if hide_labels else (names[c] if hide_conf else f'{names[c]} {conf:.2f}')
-                        plot_one_box(xyxy, im0, label=label, color=colors(c, True), line_thickness=line_thickness)
+
+                        if names[c] == 'tower_up':
+                            # 画框
+                            plot_one_box(xyxy, im0, label=label, color=(0,255,0), line_thickness=line_thickness)
+                        elif names[c] == 'tower_down':
+                            plot_one_box(xyxy, im0, label=label, color=(0,0,255), line_thickness=line_thickness)
+                        else:
+                            # 画框
+                            plot_one_box(xyxy, im0, label=label, color=colors(c, True), line_thickness=line_thickness)
+
                         if save_crop:
                             # 保存crop
                             save_one_box(xyxy, imc, file=save_dir / 'crops' / names[c] / f'{p.stem}.jpg', BGR=True)
