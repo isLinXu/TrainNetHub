@@ -7,12 +7,16 @@
 
 
 # download command/URL (optional)
-download: https://github.com/ultralytics/yolov5/releases/download/v1.0/coco128.zip
+# download: https://github.com/ultralytics/yolov5/releases/download/v1.0/coco128.zip
 
 # train and val data as 1) directory: path/images/, 2) file: path/images.txt, or 3) list: [path1/images/, path2/images/]
-train: ../coco128/images/train2017/  # 128 images
-val: ../coco128/images/train2017/  # 128 images
+train: ./data/coco128/images/train2017/  # 128 images
+val: ./data/coco128/images/train2017/  # 128 images
 
+#path: /home/hxzh02/coco128  # dataset root dir
+#train: images/train2017  # train images (relative to 'path') 128 images
+#val: images/train2017  # val images (relative to 'path') 128 images
+#test:  # test images (optional)
 # number of classes
 nc: 80
 
