@@ -1,0 +1,26 @@
+<annotation>
+	<folder>used</folder>
+	<filename>r390.jpg</filename>
+	<path>/home/hxzh02/YOLOV5/yolov5_tower_rec/dataset/used/r390.jpg</path>
+	<source>
+		<database>Unknown</database>
+	</source>
+	<size>
+		<width>480</width>
+		<height>270</height>
+		<depth>3</depth>
+	</size>
+	<segmented>0</segmented>
+	<object>
+		<name>tower_up</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>163</xmin>
+			<ymin>65</ymin>
+			<xmax>300</xmax>
+			<ymax>268</ymax>
+		</bndbox>
+	</object>
+</annotation>

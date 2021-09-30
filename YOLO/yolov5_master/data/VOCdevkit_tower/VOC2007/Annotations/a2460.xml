@@ -1,0 +1,26 @@
+<annotation>
+	<folder>used</folder>
+	<filename>a2460.jpg</filename>
+	<path>/home/hxzh02/YOLOV5/yolov5_tower_rec/dataset/used/a2460.jpg</path>
+	<source>
+		<database>Unknown</database>
+	</source>
+	<size>
+		<width>1280</width>
+		<height>720</height>
+		<depth>3</depth>
+	</size>
+	<segmented>0</segmented>
+	<object>
+		<name>tower_up</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>239</xmin>
+			<ymin>374</ymin>
+			<xmax>523</xmax>
+			<ymax>645</ymax>
+		</bndbox>
+	</object>
+</annotation>

@@ -1,0 +1,26 @@
+<annotation>
+	<folder>used</folder>
+	<filename>9095.jpg</filename>
+	<path>/home/hxzh02/YOLOV5/yolov5_tower_rec/dataset/used/9095.jpg</path>
+	<source>
+		<database>Unknown</database>
+	</source>
+	<size>
+		<width>1920</width>
+		<height>1080</height>
+		<depth>3</depth>
+	</size>
+	<segmented>0</segmented>
+	<object>
+		<name>tower_up</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>687</xmin>
+			<ymin>351</ymin>
+			<xmax>1040</xmax>
+			<ymax>950</ymax>
+		</bndbox>
+	</object>
+</annotation>

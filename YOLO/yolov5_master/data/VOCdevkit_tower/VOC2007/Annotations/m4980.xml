@@ -1,0 +1,26 @@
+<annotation>
+	<folder>used</folder>
+	<filename>m4980.jpg</filename>
+	<path>/home/hxzh02/YOLOV5/yolov5_tower_rec/dataset/used/m4980.jpg</path>
+	<source>
+		<database>Unknown</database>
+	</source>
+	<size>
+		<width>480</width>
+		<height>270</height>
+		<depth>3</depth>
+	</size>
+	<segmented>0</segmented>
+	<object>
+		<name>tower_up</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>238</xmin>
+			<ymin>103</ymin>
+			<xmax>275</xmax>
+			<ymax>228</ymax>
+		</bndbox>
+	</object>
+</annotation>

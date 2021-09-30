@@ -1,0 +1,26 @@
+<annotation>
+	<folder>used</folder>
+	<filename>cc2820.jpg</filename>
+	<path>/home/hxzh02/YOLOV5/yolov5_tower_rec/dataset/used/cc2820.jpg</path>
+	<source>
+		<database>Unknown</database>
+	</source>
+	<size>
+		<width>640</width>
+		<height>360</height>
+		<depth>3</depth>
+	</size>
+	<segmented>0</segmented>
+	<object>
+		<name>tower_up</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>462</xmin>
+			<ymin>25</ymin>
+			<xmax>568</xmax>
+			<ymax>238</ymax>
+		</bndbox>
+	</object>
+</annotation>
