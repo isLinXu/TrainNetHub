@@ -6,12 +6,12 @@ import cv2
 import torch
 import torch.backends.cudnn as cudnn
 
-from models.experimental import attempt_load
-from utils.datasets import LoadStreams, LoadImages
-from utils.general import check_img_size, check_requirements, check_imshow, non_max_suppression, apply_classifier, \
+from YOLO.yolov3_master.models.experimental import attempt_load
+from YOLO.yolov3_master.utils.datasets import LoadStreams, LoadImages
+from YOLO.yolov3_master.utils.general import check_img_size, check_requirements, check_imshow, non_max_suppression, apply_classifier, \
     scale_coords, xyxy2xywh, strip_optimizer, set_logging, increment_path, save_one_box
-from utils.plots import colors, plot_one_box
-from utils.torch_utils import select_device, load_classifier, time_synchronized
+from YOLO.yolov3_master.utils.plots import colors, plot_one_box
+from YOLO.yolov3_master.utils.torch_utils import select_device, load_classifier, time_synchronized
 
 
 @torch.no_grad()
@@ -148,7 +148,7 @@ def detect(opt):
     print(f'Done. ({time.time() - t0:.3f}s)')
 
 
-if __name__ == '__main__':
+def detect_parse_opt():
     parser = argparse.ArgumentParser()
     parser.add_argument('--weights', nargs='+', type=str, default='yolov3.pt', help='model.pt path(s)')
     parser.add_argument('--source', type=str, default='data/images', help='source')  # file/folder, 0 for webcam
@@ -174,11 +174,16 @@ if __name__ == '__main__':
     parser.add_argument('--hide-conf', default=False, action='store_true', help='hide confidences')
     opt = parser.parse_args()
     print(opt)
+    return opt
+
+
+if __name__ == '__main__':
+    d_opt = detect_parse_opt()
     check_requirements(exclude=('tensorboard', 'pycocotools', 'thop'))
 
-    if opt.update:  # update all models (to fix SourceChangeWarning)
-        for opt.weights in ['yolov3.pt', 'yolov3-spp.pt', 'yolov3-tiny.pt']:
-            detect(opt=opt)
-            strip_optimizer(opt.weights)
+    if d_opt.update:  # update all models (to fix SourceChangeWarning)
+        for d_opt.weights in ['yolov3.pt', 'yolov3-spp.pt', 'yolov3-tiny.pt']:
+            detect(opt=d_opt)
+            strip_optimizer(d_opt.weights)
     else:
-        detect(opt=opt)
+        detect(opt=d_opt)
