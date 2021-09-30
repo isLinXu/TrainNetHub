@@ -22,18 +22,19 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 import test  # import test.py to get mAP after each epoch
-from models.experimental import attempt_load
-from models.yolo import Model
-from utils.autoanchor import check_anchors
-from utils.datasets import create_dataloader
-from utils.general import labels_to_class_weights, increment_path, labels_to_image_weights, init_seeds, \
-    fitness, strip_optimizer, get_latest_run, check_dataset, check_file, check_git_status, check_img_size, \
+from YOLO.yolov3_master.models.experimental import attempt_load
+from YOLO.yolov3_master.models.yolo import Model
+from YOLO.yolov3_master.utils.autoanchor import check_anchors
+from YOLO.yolov3_master.utils.datasets import create_dataloader
+from YOLO.yolov3_master.utils.general import labels_to_class_weights, increment_path, labels_to_image_weights, init_seeds, \
+     strip_optimizer, get_latest_run, check_dataset, check_file, check_git_status, check_img_size, \
     check_requirements, print_mutation, set_logging, one_cycle, colorstr
-from utils.google_utils import attempt_download
-from utils.loss import ComputeLoss
-from utils.plots import plot_images, plot_labels, plot_results, plot_evolution
-from utils.torch_utils import ModelEMA, select_device, intersect_dicts, torch_distributed_zero_first, de_parallel
-from utils.wandb_logging.wandb_utils import WandbLogger, check_wandb_resume
+from YOLO.yolov5_master.utils.metrics import fitness
+from YOLO.yolov3_master.utils.google_utils import attempt_download
+from YOLO.yolov3_master.utils.loss import ComputeLoss
+from YOLO.yolov3_master.utils.plots import plot_images, plot_labels, plot_results, plot_evolution
+from YOLO.yolov3_master.utils.torch_utils import ModelEMA, select_device, intersect_dicts, torch_distributed_zero_first, de_parallel
+from YOLO.yolov3_master.utils.wandb_logging.wandb_utils import WandbLogger, check_wandb_resume
 
 logger = logging.getLogger(__name__)
 
@@ -621,3 +622,16 @@ if __name__ == '__main__':
         plot_evolution(yaml_file)
         print(f'Hyperparameter evolution complete. Best results saved as: {yaml_file}\n'
               f'Command to train a new model with these hyperparameters: $ python train.py --hyp {yaml_file}')
+
+
+
+if __name__ == '__main__':
+    # 重设自定义参数
+    opt.data = 'data/voc_tower.yaml'
+    opt.cfg = 'models/yolov5s_tower.yaml'
+    opt.weight = 'weights/yolov5s.pt'
+    opt.batch_size = 16
+    opt.epochs = 100
+    opt.workers = 4
+    opt.name = 'tower_yolov5s'
+    train(opt)
