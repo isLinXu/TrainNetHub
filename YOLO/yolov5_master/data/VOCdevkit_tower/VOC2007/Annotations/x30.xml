@@ -1,0 +1,26 @@
+<annotation>
+	<folder>used</folder>
+	<filename>x30.jpg</filename>
+	<path>/home/hxzh02/YOLOV5/yolov5_tower_rec/dataset/used/x30.jpg</path>
+	<source>
+		<database>Unknown</database>
+	</source>
+	<size>
+		<width>480</width>
+		<height>270</height>
+		<depth>3</depth>
+	</size>
+	<segmented>0</segmented>
+	<object>
+		<name>tower_up</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>130</xmin>
+			<ymin>121</ymin>
+			<xmax>256</xmax>
+			<ymax>267</ymax>
+		</bndbox>
+	</object>
+</annotation>

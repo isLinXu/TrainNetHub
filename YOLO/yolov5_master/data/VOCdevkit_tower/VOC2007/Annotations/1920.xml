@@ -1,0 +1,26 @@
+<annotation>
+	<folder>used</folder>
+	<filename>1920.jpg</filename>
+	<path>/home/hxzh02/YOLOV5/yolov5_tower_rec/dataset/used/1920.jpg</path>
+	<source>
+		<database>Unknown</database>
+	</source>
+	<size>
+		<width>1288</width>
+		<height>720</height>
+		<depth>3</depth>
+	</size>
+	<segmented>0</segmented>
+	<object>
+		<name>tower_up</name>
+		<pose>Unspecified</pose>
+		<truncated>1</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>382</xmin>
+			<ymin>123</ymin>
+			<xmax>807</xmax>
+			<ymax>720</ymax>
+		</bndbox>
+	</object>
+</annotation>

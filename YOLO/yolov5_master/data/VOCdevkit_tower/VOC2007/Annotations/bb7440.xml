@@ -1,0 +1,26 @@
+<annotation>
+	<folder>used</folder>
+	<filename>bb7440.jpg</filename>
+	<path>/home/hxzh02/YOLOV5/yolov5_tower_rec/dataset/used/bb7440.jpg</path>
+	<source>
+		<database>Unknown</database>
+	</source>
+	<size>
+		<width>640</width>
+		<height>360</height>
+		<depth>3</depth>
+	</size>
+	<segmented>0</segmented>
+	<object>
+		<name>tower_up</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>347</xmin>
+			<ymin>107</ymin>
+			<xmax>376</xmax>
+			<ymax>187</ymax>
+		</bndbox>
+	</object>
+</annotation>

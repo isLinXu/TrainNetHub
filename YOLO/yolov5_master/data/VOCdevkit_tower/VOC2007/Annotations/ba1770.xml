@@ -1,0 +1,26 @@
+<annotation>
+	<folder>used</folder>
+	<filename>ba1770.jpg</filename>
+	<path>/home/hxzh02/YOLOV5/yolov5_tower_rec/dataset/used/ba1770.jpg</path>
+	<source>
+		<database>Unknown</database>
+	</source>
+	<size>
+		<width>480</width>
+		<height>270</height>
+		<depth>3</depth>
+	</size>
+	<segmented>0</segmented>
+	<object>
+		<name>tower_up</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>170</xmin>
+			<ymin>45</ymin>
+			<xmax>237</xmax>
+			<ymax>149</ymax>
+		</bndbox>
+	</object>
+</annotation>

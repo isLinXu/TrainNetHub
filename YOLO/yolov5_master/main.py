@@ -1,3 +1,4 @@
+import cv2
 
 from YOLO.yolov5_master.train import train_main,train_parse_opt
 from YOLO.yolov5_master.detect import detect_main,detect_parse_opt
@@ -45,28 +46,28 @@ def detect_():
     Usage-IDE使用方式：直接在下面对应位置进行修改
     """
     # 图像/图像集合/视频的源路径,内部自动文件类型进行判断
-    # d_opt.source = '/home/hxzh02/文档/航拍数据集/VOCdevkit_tower_part/JPEGImages/2040.jpg'
+    d_opt.source = '/home/hxzh02/文档/航拍数据集/VOCdevkit_tower_part/JPEGImages/2040.jpg'
     # d_opt.source = '/home/hxzh02/MyGithub/TrainNetHub/YOLO/yolov5_master/data/images/'
     # d_opt.source = '/home/hxzh02/YOLOV5/yolov5_tower_rec/planeVideoCut.mp4'
-    d_opt.source = '/home/hxzh02/文档/video/'
+    # d_opt.source = '/home/hxzh02/文档/video/'
     # d_opt.source = ''
     # 设置进行预测推理使用的权重模型文件
     # d_opt.weights = '/home/hxzh02/MyGithub/TrainNetHub/YOLO/yolov5_master/runs/train/coco128_yolov5s/weights/best.pt'
     d_opt.weights = '/home/hxzh02/MyGithub/TrainNetHub/YOLO/yolov5_master/runs/train/tower_updown_yolov5s/weights/best.pt'
     # d_opt.weights = '/home/hxzh02/PycharmProjects/TrainNetHub/YOLO/yolov5_master/runs/train/tower_yolov5s16/weights/best.pt'
     # 设置是否需要预览
-    d_opt.view_img = False
+    d_opt.view_img = True
     # 置信度设置
     d_opt.conf_thres = 0.5
     # 边界框线条粗细
     d_opt.line_thickness = 1
+    cv2.waitKey()
     """开始预测推理"""
     detect_main(d_opt)
 
-
 if __name__ == '__main__':
     # 模型训练
-    # train_()
+    train_()
 
     # 模型预测
-    detect_()
+    # detect_()

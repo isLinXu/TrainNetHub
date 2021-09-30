@@ -1,0 +1,26 @@
+<annotation>
+	<folder>used</folder>
+	<filename>b600.jpg</filename>
+	<path>/home/hxzh02/YOLOV5/yolov5_tower_rec/dataset/used/b600.jpg</path>
+	<source>
+		<database>Unknown</database>
+	</source>
+	<size>
+		<width>1280</width>
+		<height>720</height>
+		<depth>3</depth>
+	</size>
+	<segmented>0</segmented>
+	<object>
+		<name>tower_up</name>
+		<pose>Unspecified</pose>
+		<truncated>0</truncated>
+		<difficult>0</difficult>
+		<bndbox>
+			<xmin>526</xmin>
+			<ymin>210</ymin>
+			<xmax>739</xmax>
+			<ymax>689</ymax>
+		</bndbox>
+	</object>
+</annotation>
