@@ -21,9 +21,9 @@ import torch
 import torchvision
 import yaml
 
-from utils.google_utils import gsutil_getsize
-from utils.metrics import fitness
-from utils.torch_utils import init_torch_seeds
+from YOLO.yolov3_master.utils.google_utils import gsutil_getsize
+from YOLO.yolov3_master.utils.metrics import fitness
+from YOLO.yolov3_master.utils.torch_utils import init_torch_seeds
 
 # Settings
 torch.set_printoptions(linewidth=320, precision=5, profile='long')
@@ -117,7 +117,7 @@ def check_python(minimum='3.7.0', required=True):
     return result
 
 
-def check_requirements(requirements='requirements.txt', exclude=()):
+def check_requirements(requirements='support/requirements.txt', exclude=()):
     # Check installed dependencies meet requirements (pass *.txt file or list of packages)
     prefix = colorstr('red', 'bold', 'requirements:')
     check_python()  # check python version
