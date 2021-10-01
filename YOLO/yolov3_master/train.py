@@ -487,7 +487,7 @@ def train(hyp, opt, device, tb_writer=None):
     torch.cuda.empty_cache()
     return results
 
-def train_main(opt=train_parse_opt()):
+def train_main(t_opt):
     # 初始化参数列表
     # t_opt = train_parse_opt()
     # Set DDP variables
@@ -519,7 +519,7 @@ def train_main(opt=train_parse_opt()):
 
     # DDP mode
     t_opt.total_batch_size = t_opt.batch_size
-    device = select_device(opt.device, batch_size=t_opt.batch_size)
+    device = select_device(t_opt.device, batch_size=t_opt.batch_size)
     if t_opt.local_rank != -1:
         assert torch.cuda.device_count() > t_opt.local_rank
         torch.cuda.set_device(t_opt.local_rank)
@@ -539,7 +539,7 @@ def train_main(opt=train_parse_opt()):
         tb_writer = None  # init loggers
         if t_opt.global_rank in [-1, 0]:
             prefix = colorstr('tensorboard: ')
-            logger.info(f"{prefix}Start with 'tensorboard --logdir {opt.project}', view at http://localhost:6006/")
+            logger.info(f"{prefix}Start with 'tensorboard --logdir {t_opt.project}', view at http://localhost:6006/")
             tb_writer = SummaryWriter(t_opt.save_dir)  # Tensorboard
         train(hyp, t_opt, device, tb_writer)
 
