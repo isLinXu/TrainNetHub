@@ -32,7 +32,7 @@ def train_():
     # 设置线程数
     t_opt.workers = 4
     # 训练结果的文件名称
-    # t_opt.name = 'coco128_yolov3'
+    t_opt.name = 'coco128_yolov3'
 
     """开始训练"""
     train_main(t_opt)
@@ -62,7 +62,7 @@ def detect_():
 
 if __name__ == '__main__':
     # 模型训练
-    # train_()
+    train_()
 
     # 模型预测
-    detect_()
+    # detect_()

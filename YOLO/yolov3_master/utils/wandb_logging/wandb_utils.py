@@ -8,9 +8,9 @@ import yaml
 from tqdm import tqdm
 
 sys.path.append(str(Path(__file__).parent.parent.parent))  # add utils/ to path
-from utils.datasets import LoadImagesAndLabels
-from utils.datasets import img2label_paths
-from utils.general import colorstr, xywh2xyxy, check_dataset, check_file
+from YOLO.yolov3_master.utils.datasets import LoadImagesAndLabels
+from YOLO.yolov3_master.utils.datasets import img2label_paths
+from YOLO.yolov3_master.utils.general import colorstr, xywh2xyxy, check_dataset, check_file
 
 try:
     import wandb

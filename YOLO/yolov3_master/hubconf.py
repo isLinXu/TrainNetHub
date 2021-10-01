@@ -24,11 +24,11 @@ def _create(name, pretrained=True, channels=3, classes=80, autoshape=True, verbo
         YOLOv3 pytorch model
     """
     from pathlib import Path
-
-    from models.yolo import Model, attempt_load
-    from utils.general import check_requirements, set_logging
-    from utils.google_utils import attempt_download
-    from utils.torch_utils import select_device
+    from YOLO.yolov3_master.models.yolo import Model
+    from YOLO.yolov5_master.models.experimental import attempt_load
+    from YOLO.yolov3_master.utils.general import check_requirements, set_logging
+    from YOLO.yolov3_master.utils.google_utils import attempt_download
+    from YOLO.yolov3_master.utils.torch_utils import select_device
 
     check_requirements(Path(__file__).parent / 'requirements.txt', exclude=('tensorboard', 'pycocotools', 'thop'))
     set_logging(verbose=verbose)
