@@ -1,7 +1,7 @@
 import cv2
 
-from YOLO.yolov5_master.train import train_main,train_parse_opt
-from YOLO.yolov5_master.detect import detect_main,detect_parse_opt
+from YOLO.yolov3_master.train import train_main,train_parse_opt
+from YOLO.yolov3_master.detect import detect_main,detect_parse_opt
 
 def train_():
     # 初始化参数列表
@@ -9,16 +9,22 @@ def train_():
     """
     重设自定义参数,进行模型训练
     Usage-命令行使用方式:
-    $ python path/to/train.py --data coco128.yaml --weights yolov5s.pt --img 640
+    $ python detect.py --source 0  # webcam
+                            file.jpg  # image 
+                            file.mp4  # video
+                            path/  # directory
+                            path/*.jpg  # glob
+                            'https://youtu.be/NUsoVlDFqZg'  # YouTube video
+                            'rtsp://example.com/media.mp4'  # RTSP, RTMP, HTTP stream
     Usage-IDE使用方式：直接在下面对应位置进行修改
     """
     # 数据集配置文件
     t_opt.data = 'data/coco128.yaml'
     # 模型配置文件
-    t_opt.cfg = 'models/yolov5s.yaml'
+    t_opt.cfg = 'models/coco128.yaml'
     # 预训练权重
-    # weights/yolov5l.pt,yolov5l6.pt,yolov5m.pt,yolov5m6.pt,yolov5s6.pt,yolov5x.pt,yolov5x6.pt
-    t_opt.weights = 'weights/yolov5s.pt'
+    # weights/yolov3.pt, yolov3-spp.pt,yolov3-tiny.pt,yolov5l.pt
+    t_opt.weights = 'weights/yolov3.pt'
     # 设置单次训练所选取的样本数
     t_opt.batch_size = 16
     # 设置训练样本训练的迭代次数
@@ -26,7 +32,7 @@ def train_():
     # 设置线程数
     t_opt.workers = 4
     # 训练结果的文件名称
-    # t_opt.name = 'coco128_yolov5s'
+    # t_opt.name = 'coco128_yolov3'
 
     """开始训练"""
     train_main(t_opt)
@@ -41,9 +47,9 @@ def detect_():
     Usage-IDE使用方式：直接在下面对应位置进行修改
     """
     # 图像/图像集合/视频的源路径,内部自动文件类型进行判断
-    d_opt.source = ''
+    d_opt.source = '/home/hxzh02/MyGithub/TrainNetHub/YOLO/yolov3_master/data/images/zidane.jpg'
     # 设置进行预测推理使用的权重模型文件
-    d_opt.weights = '/home/hxzh02/MyGithub/TrainNetHub/YOLO/yolov5_master/runs/train/coco128_yolov5s/weights/best.pt'
+    d_opt.weights = '/home/hxzh02/MyGithub/TrainNetHub/YOLO/yolov3_master/weights/yolov3.pt'
     # 设置是否需要预览
     d_opt.view_img = False
     # 置信度设置
@@ -56,7 +62,7 @@ def detect_():
 
 if __name__ == '__main__':
     # 模型训练
-    train_()
+    # train_()
 
     # 模型预测
-    # detect_()
+    detect_()

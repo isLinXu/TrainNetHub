@@ -177,8 +177,7 @@ def detect_parse_opt():
     return opt
 
 
-if __name__ == '__main__':
-    d_opt = detect_parse_opt()
+def detect_main(d_opt):
     check_requirements(exclude=('tensorboard', 'pycocotools', 'thop'))
 
     if d_opt.update:  # update all models (to fix SourceChangeWarning)
@@ -187,3 +186,11 @@ if __name__ == '__main__':
             strip_optimizer(d_opt.weights)
     else:
         detect(opt=d_opt)
+
+
+if __name__ == '__main__':
+    d_opt = detect_parse_opt()
+    d_opt.source = '/home/hxzh02/MyGithub/TrainNetHub/YOLO/yolov3_master/data/images/bus.jpg'
+    d_opt.weights = '/home/hxzh02/MyGithub/TrainNetHub/YOLO/yolov3_master/weights/yolov3.pt'
+    d_opt.view_img = False
+    detect_main(d_opt)
