@@ -9,8 +9,9 @@ import torch
 
 
 def _create(name, pretrained=True, channels=3, classes=80, autoshape=True, verbose=True, device=None):
+    """根据name创建yolov3模型"""
     """Creates a specified YOLOv3 model
-
+    
     Arguments:
         name (str): name of model, i.e. 'yolov3'
         pretrained (bool): load pretrained weights into the model
@@ -35,6 +36,7 @@ def _create(name, pretrained=True, channels=3, classes=80, autoshape=True, verbo
 
     fname = Path(name).with_suffix('.pt')  # checkpoint filename
     try:
+        # 加载模型
         if pretrained and channels == 3 and classes == 80:
             model = attempt_load(fname, map_location=torch.device('cpu'))  # download/load FP32 model
         else:
@@ -50,6 +52,8 @@ def _create(name, pretrained=True, channels=3, classes=80, autoshape=True, verbo
                     model.names = ckpt['model'].names  # set class names attribute
         if autoshape:
             model = model.autoshape()  # for file/URI/PIL/cv2/np inputs and NMS
+
+        # 选择设备
         device = select_device('0' if torch.cuda.is_available() else 'cpu') if device is None else torch.device(device)
         return model.to(device)
 
@@ -60,19 +64,23 @@ def _create(name, pretrained=True, channels=3, classes=80, autoshape=True, verbo
 
 
 def custom(path='path/to/model.pt', autoshape=True, verbose=True, device=None):
+    """加载自己训练的模型接口"""
     # YOLOv3 custom or local model
     return _create(path, autoshape=autoshape, verbose=verbose, device=device)
 
 
 def yolov3(pretrained=True, channels=3, classes=80, autoshape=True, verbose=True, device=None):
+    """加载yolov3模型接口"""
     # YOLOv3 model https://github.com/ultralytics/yolov3
     return _create('yolov3', pretrained, channels, classes, autoshape, verbose, device)
 
 def yolov3_spp(pretrained=True, channels=3, classes=80, autoshape=True, verbose=True, device=None):
+    """加载yolov3-spp模型接口"""
     # YOLOv3-SPP model https://github.com/ultralytics/yolov3
     return _create('yolov3-spp', pretrained, channels, classes, autoshape, verbose, device)
 
 def yolov3_tiny(pretrained=True, channels=3, classes=80, autoshape=True, verbose=True, device=None):
+    """加载yolov3-tiny模型接口"""
     # YOLOv3-tiny model https://github.com/ultralytics/yolov3
     return _create('yolov3-tiny', pretrained, channels, classes, autoshape, verbose, device)
 
