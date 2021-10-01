@@ -22,7 +22,7 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 
-import YOLO.yolov3_master.test as test # import test.py to get mAP after each epoch
+import YOLO.yolov3_master.val as val # import val.py to get mAP after each epoch
 from YOLO.yolov3_master.models.experimental import attempt_load
 from YOLO.yolov3_master.models.yolo import Model
 from YOLO.yolov3_master.utils.autoanchor import check_anchors
@@ -591,7 +591,7 @@ def train(hyp, opt, device, tb_writer=None):
             # 测试时使用的是EMA模型
             if not opt.notest or final_epoch:  # Calculate mAP
                 wandb_logger.current_epoch = epoch + 1
-                results, maps, times = test.test(data_dict,
+                results, maps, times = val.test(data_dict,
                                                  batch_size=batch_size * 2,
                                                  imgsz=imgsz_test,
                                                  model=ema.ema,
