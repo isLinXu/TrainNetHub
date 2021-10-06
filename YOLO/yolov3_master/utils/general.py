@@ -26,10 +26,13 @@ from YOLO.yolov3_master.utils.metrics import fitness
 from YOLO.yolov3_master.utils.torch_utils import init_torch_seeds
 
 # Settings
+# 设置torch，np, pandas的显示限制
 torch.set_printoptions(linewidth=320, precision=5, profile='long')
 np.set_printoptions(linewidth=320, formatter={'float_kind': '{:11.5g}'.format})  # format short g, %precision=5
 pd.options.display.max_columns = 10
+# 限制opencv-python的线程数
 cv2.setNumThreads(0)  # prevent OpenCV from multithreading (incompatible with PyTorch DataLoader)
+# 设置numpy的线程数
 os.environ['NUMEXPR_MAX_THREADS'] = str(min(os.cpu_count(), 8))  # NumExpr max threads
 
 
@@ -87,16 +90,25 @@ def check_online():
 
 
 def check_git_status():
+    """检查当前代码是否为最新"""
     # Recommend 'git pull' if code is out of date
+    # colorstr函数可改变“github:”字体颜色，具体查看colorstr注释
     print(colorstr('github: '), end='')
     try:
+        # 判断文件夹是否存在.git文件夹(git管理的文件夹)
         assert Path('.git').exists(), 'skipping check (not a git repository)'
+        # 判断是否为docker环境
         assert not is_docker(), 'skipping check (Docker image)'
+        # 判断是否联网
         assert check_online(), 'skipping check (offline)'
 
         cmd = 'git fetch && git config --get remote.origin.url'
+        # check_output:shell命令，并返回结果
+        # 将最新的代码拉取到本地，并返回代码地址url
         url = subprocess.check_output(cmd, shell=True).decode().strip().rstrip('.git')  # github repo url
+        # 获取当前分支名branch
         branch = subprocess.check_output('git rev-parse --abbrev-ref HEAD', shell=True).decode().strip()  # checked out
+        # 返回落后的提交数
         n = int(subprocess.check_output(f'git rev-list {branch}..origin/master --count', shell=True))  # commits behind
         if n > 0:
             s = f"⚠️ WARNING: code is out of date by {n} commit{'s' * (n > 1)}. " \
@@ -109,6 +121,8 @@ def check_git_status():
 
 
 def check_python(minimum='3.7.0', required=True):
+    """检查当前python版本是否满足要求
+    platform.python_version()获取当前python版本"""
     # Check current python version vs. required python version
     current = platform.python_version()
     result = pkg.parse_version(current) >= pkg.parse_version(minimum)
@@ -118,14 +132,19 @@ def check_python(minimum='3.7.0', required=True):
 
 
 def check_requirements(requirements='support/requirements.txt', exclude=()):
+    """检查当前环境是够满足要求
+     exclude:不需要检查的环境包"""
     # Check installed dependencies meet requirements (pass *.txt file or list of packages)
+    # 将requirements显示这是为红色
     prefix = colorstr('red', 'bold', 'requirements:')
+    # 检查python环境是否满足要求
     check_python()  # check python version
     if isinstance(requirements, (str, Path)):  # requirements.txt file
         file = Path(requirements)
         if not file.exists():
             print(f"{prefix} {file.resolve()} not found, check failed.")
             return
+        # x.name为包名，x.specifier为版本要求，例如>=1.0.2
         requirements = [f'{x.name}{x.specifier}' for x in pkg.parse_requirements(file.open()) if x.name not in exclude]
     else:  # list or tuple of packages
         requirements = [x for x in requirements if x not in exclude]
@@ -133,11 +152,13 @@ def check_requirements(requirements='support/requirements.txt', exclude=()):
     n = 0  # number of packages updates
     for r in requirements:
         try:
+            # 检查包和其依赖，为安装则报错，然后跳到except中安装
             pkg.require(r)
         except Exception as e:  # DistributionNotFound or VersionConflict if requirements not met
             n += 1
             print(f"{prefix} {r} not found and is required by YOLOv3, attempting auto-update...")
             try:
+                # 安装/更新包
                 print(subprocess.check_output(f"pip install '{r}'", shell=True).decode())
             except Exception as e:
                 print(f'{prefix} {e}')
@@ -150,6 +171,7 @@ def check_requirements(requirements='support/requirements.txt', exclude=()):
 
 
 def check_img_size(img_size, s=32):
+    """检查image大小, 保证img_size能整除s(32)"""
     # Verify img_size is a multiple of stride s
     new_size = make_divisible(img_size, int(s))  # ceil gs-multiple
     if new_size != img_size:
@@ -158,6 +180,7 @@ def check_img_size(img_size, s=32):
 
 
 def check_imshow():
+    """检查当前环境是否满足cv2.imshow"""
     # Check if environment supports image displays
     try:
         assert not is_docker(), 'cv2.imshow() is disabled in Docker environments'
@@ -173,17 +196,22 @@ def check_imshow():
 
 
 def check_file(file):
+    """检查file,若没有则返回路径"""
     # Search/download file (if necessary) and return path
+    # 判断当前文件是否存在，存在则直接返回
     file = str(file)  # convert to str()
     if Path(file).is_file() or file == '':  # exists
         return file
+    # 如果file以http或https开头，则自动下载该文件
     elif file.startswith(('http://', 'https://')):  # download
         url, file = file, Path(file).name
         print(f'Downloading {url} to {file}...')
         torch.hub.download_url_to_file(url, file)
+        # 下载之后判断该文件是否存在，并文件大小大于0
         assert Path(file).exists() and Path(file).stat().st_size > 0, f'File download failed: {url}'  # check
         return file
     else:  # search
+        # 在当前目录下搜索该文件
         files = glob.glob('./**/' + file, recursive=True)  # find file
         assert len(files), f'File not found: {file}'  # assert file was found
         assert len(files) == 1, f"Multiple files match '{file}', specify exact path: {files}"  # assert unique
@@ -191,12 +219,16 @@ def check_file(file):
 
 
 def check_dataset(dict):
+    """检查dataset
+    获取数据集所在的path, 来自数据集配置文件data.yaml, 没有path返回"""
     # Download dataset if not found locally
     val, s = dict.get('val'), dict.get('download')
     if val and len(val):
+        # Path(x).resolve获取x的绝对路径，解析其中的所有符号连接，并规范化
         val = [Path(x).resolve() for x in (val if isinstance(val, list) else [val])]  # val path
         if not all(x.exists() for x in val):
             print('\nWARNING: Dataset not found, nonexistent paths: %s' % [str(x) for x in val if not x.exists()])
+            # 如果val文件夹不存在，且yaml文件中有download选项，且设置autodownload，则自动下载
             if s and len(s):  # download script
                 if s.startswith('http') and s.endswith('.zip'):  # URL
                     f = Path(s).name  # filename
@@ -217,6 +249,7 @@ def download(url, dir='.', unzip=True, delete=True, curl=False, threads=1):
     # Multi-threaded file download and unzip function
     def download_one(url, dir):
         # Download 1 file
+        # file 文件名
         f = dir / Path(url).name  # filename
         if not f.exists():
             print(f'Downloading {url} to {f}...')
@@ -224,6 +257,7 @@ def download(url, dir='.', unzip=True, delete=True, curl=False, threads=1):
                 os.system(f"curl -L '{url}' -o '{f}' --retry 9 -C -")  # curl download, retry and resume on fail
             else:
                 torch.hub.download_url_to_file(url, f, progress=True)  # torch download
+        # f.suffix文件后缀
         if unzip and f.suffix in ('.zip', '.gz'):
             print(f'Unzipping {f}...')
             if f.suffix == '.zip':
@@ -236,6 +270,7 @@ def download(url, dir='.', unzip=True, delete=True, curl=False, threads=1):
 
     dir = Path(dir)
     dir.mkdir(parents=True, exist_ok=True)  # make directory
+    # 多进程下载
     if threads > 1:
         pool = ThreadPool(threads)
         pool.imap(lambda x: download_one(*x), zip(url, repeat(dir)))  # multi-threaded
@@ -247,21 +282,25 @@ def download(url, dir='.', unzip=True, delete=True, curl=False, threads=1):
 
 
 def make_divisible(x, divisor):
+    # 返回能被divisor整除的x
     # Returns x evenly divisible by divisor
     return math.ceil(x / divisor) * divisor
 
 
 def clean_str(s):
+    """将字符串中的特殊符号(如@，*等)替换为下划线_"""
     # Cleans a string by replacing special characters with underscore _
     return re.sub(pattern="[|@#!¡·$€%&()=?¿^*;:,¨´><+]", repl="_", string=s)
 
 
 def one_cycle(y1=0.0, y2=1.0, steps=100):
+    """训练时的余弦退火公式"""
     # lambda function for sinusoidal ramp from y1 to y2
     return lambda x: ((1 - math.cos(x * math.pi / steps)) / 2) * (y2 - y1) + y1
 
 
 def colorstr(*input):
+    """字体设置,改变输出文本的颜色和字体，格式：(颜色，字体，文本)"""
     # Colors a string https://en.wikipedia.org/wiki/ANSI_escape_code, i.e.  colorstr('blue', 'hello world')
     *args, string = input if len(input) > 1 else ('blue', 'bold', input[0])  # color arguments, string
     colors = {'black': '\033[30m',  # basic colors
@@ -287,25 +326,29 @@ def colorstr(*input):
 
 
 def labels_to_class_weights(labels, nc=80):
+    """根据labels初始化图片采样权重"""
     # Get class weights (inverse frequency) from training labels
     if labels[0] is None:  # no labels loaded
         return torch.Tensor()
-
+    # 将所有label拼接
     labels = np.concatenate(labels, 0)  # labels.shape = (866643, 5) for COCO
     classes = labels[:, 0].astype(np.int)  # labels = [class xywh]
+    # 统计每个类别的数量, bincount返回一个长度为nc的数组，索引的值为该类别的数量
     weights = np.bincount(classes, minlength=nc)  # occurrences per class
 
     # Prepend gridpoint count (for uCE training)
     # gpi = ((320 / 32 * np.array([1, 2, 4])) ** 2 * 3).sum()  # gridpoints per image
     # weights = np.hstack([gpi * len(labels)  - weights.sum() * 9, weights * 9]) ** 0.5  # prepend gridpoints to start
-
+    # 替换空的bins为1
     weights[weights == 0] = 1  # replace empty bins with 1
+    # 计算采样权重
     weights = 1 / weights  # number of targets per class
     weights /= weights.sum()  # normalize
     return torch.from_numpy(weights)
 
 
 def labels_to_image_weights(labels, nc=80, class_weights=np.ones(80)):
+    """根据class_weights以及配合每张图片包含的类别数更新采样权重"""
     # Produces image weights based on class_weights and image contents
     class_counts = np.array([np.bincount(x[:, 0].astype(np.int), minlength=nc) for x in labels])
     image_weights = (class_weights.reshape(1, nc) * class_counts).sum(1)
@@ -319,6 +362,8 @@ def coco80_to_coco91_class():  # converts 80-index (val2014) to 91-index (paper)
     # b = np.loadtxt('data/coco_paper.names', dtype='str', delimiter='\n')
     # x1 = [list(a[i] == b).index(True) + 1 for i in range(80)]  # darknet to coco
     # x2 = [list(b[i] == a).index(True) if any(b[i] == a) else None for i in range(91)]  # coco to darknet
+    """coco数据集的索引映射，因为coco数据的索引其实是到90的，也就是按照索引的话应该是有91个类，
+    但只有80个类，即0~91之间有些索引没有用到"""
     x = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 27, 28, 31, 32, 33, 34,
          35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63,
          64, 65, 67, 70, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 84, 85, 86, 87, 88, 89, 90]
@@ -326,6 +371,7 @@ def coco80_to_coco91_class():  # converts 80-index (val2014) to 91-index (paper)
 
 
 def xyxy2xywh(x):
+    """xyxy左上角+右下角坐标 -> xywh中心点+宽高"""
     # Convert nx4 boxes from [x1, y1, x2, y2] to [x, y, w, h] where xy1=top-left, xy2=bottom-right
     y = x.clone() if isinstance(x, torch.Tensor) else np.copy(x)
     y[:, 0] = (x[:, 0] + x[:, 2]) / 2  # x center
@@ -336,6 +382,7 @@ def xyxy2xywh(x):
 
 
 def xywh2xyxy(x):
+    """归一化的xywh中心点+宽高 -> xyxy左上角+右下角坐标"""
     # Convert nx4 boxes from [x, y, w, h] to [x1, y1, x2, y2] where xy1=top-left, xy2=bottom-right
     y = x.clone() if isinstance(x, torch.Tensor) else np.copy(x)
     y[:, 0] = x[:, 0] - x[:, 2] / 2  # top left x
@@ -346,7 +393,9 @@ def xywh2xyxy(x):
 
 
 def xywhn2xyxy(x, w=640, h=640, padw=0, padh=0):
+    """xyxy左上角+右下角坐标 -> 归一化的xywh中心点+宽高"""
     # Convert nx4 boxes from [x, y, w, h] normalized to [x1, y1, x2, y2] where xy1=top-left, xy2=bottom-right
+    # 规范xyxy坐标在图片宽高内
     y = x.clone() if isinstance(x, torch.Tensor) else np.copy(x)
     y[:, 0] = w * (x[:, 0] - x[:, 2] / 2) + padw  # top left x
     y[:, 1] = h * (x[:, 1] - x[:, 3] / 2) + padh  # top left y
@@ -356,6 +405,8 @@ def xywhn2xyxy(x, w=640, h=640, padw=0, padh=0):
 
 
 def xyn2xy(x, w=640, h=640, padw=0, padh=0):
+    """归一化的segment坐标 -> 基于原图的segment坐标
+    在数据增强mosaic中有使用"""
     # Convert normalized segments into pixel segments, shape (n,2)
     y = x.clone() if isinstance(x, torch.Tensor) else np.copy(x)
     y[:, 0] = w * x[:, 0] + padw  # top left x
@@ -364,6 +415,13 @@ def xyn2xy(x, w=640, h=640, padw=0, padh=0):
 
 
 def segment2box(segment, width=640, height=640):
+    '''
+    应用内部图像约束,将1个segment标签转换为1个box标签，
+    :param segment:
+    :param width:
+    :param height:
+    :return:
+    '''
     # Convert 1 segment label to 1 box label, applying inside-image constraint, i.e. (xy1, xy2, ...) to (xyxy)
     x, y = segment.T  # segment xy
     inside = (x >= 0) & (y >= 0) & (x <= width) & (y <= height)
@@ -372,6 +430,7 @@ def segment2box(segment, width=640, height=640):
 
 
 def segments2boxes(segments):
+    """同上，只不多是处理多个segment，并且将xyxy -> xywh"""
     # Convert segment labels to box labels, i.e. (cls, xy1, xy2, ...) to (cls, xywh)
     boxes = []
     for s in segments:
@@ -381,6 +440,8 @@ def segments2boxes(segments):
 
 
 def resample_segments(segments, n=1000):
+    """对segment重新采样，比如说segment坐标只有100个，
+      通过interp函数将其采样为n个(默认1000)"""
     # Up-sample an (n,2) segment
     for i, s in enumerate(segments):
         x = np.linspace(0, len(s) - 1, n)
@@ -390,22 +451,29 @@ def resample_segments(segments, n=1000):
 
 
 def scale_coords(img1_shape, coords, img0_shape, ratio_pad=None):
+    """基于网络input-size的坐标 -> 基于原图大小的坐标
+    :param img1_shape:网络input-size；
+    :param coord：网络输出坐标；
+    :param img0_shape：原图shape"""
     # Rescale coords (xyxy) from img1_shape to img0_shape
+    # 计算input-size到原图大小需要的padding
     if ratio_pad is None:  # calculate from img0_shape
         gain = min(img1_shape[0] / img0_shape[0], img1_shape[1] / img0_shape[1])  # gain  = old / new
         pad = (img1_shape[1] - img0_shape[1] * gain) / 2, (img1_shape[0] - img0_shape[0] * gain) / 2  # wh padding
     else:
         gain = ratio_pad[0][0]
         pad = ratio_pad[1]
-
+    # 坐标加上pad，然后缩放会原图大小
     coords[:, [0, 2]] -= pad[0]  # x padding
     coords[:, [1, 3]] -= pad[1]  # y padding
     coords[:, :4] /= gain
+    # 将坐标规范为原图大小以内
     clip_coords(coords, img0_shape)
     return coords
 
 
 def clip_coords(boxes, img_shape):
+    """规范boxes坐标到shape大小以内"""
     # Clip bounding xyxy bounding boxes to image shape (height, width)
     boxes[:, 0].clamp_(0, img_shape[1])  # x1
     boxes[:, 1].clamp_(0, img_shape[0])  # y1
@@ -493,34 +561,54 @@ def wh_iou(wh1, wh2):
 
 def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=None, agnostic=False, multi_label=False,
                         labels=(), max_det=300):
+    """对预测做nms
+     :param prediction:前向传播的输出
+     :param conf_thres:置信度阈值
+     :param iou_thres:iou阈值
+     :param classes:是否只保留特定的类别, 默认为None则保留全部类别
+     :param agnostic:进行nms是否也去除不同类别之间的框
+     :param multi_label:是否采用多标签
+     :param labels:加入真实标签进行nms,目前是在test.py中保存预测到txt文件时，save_hybrid选项有使用
+     :param max_det:nms之后保留的最多框数量
+     """
     """Runs Non-Maximum Suppression (NMS) on inference results
 
     Returns:
          list of detections, on (n,6) tensor per image [xyxy, conf, cls]
     """
-
+    # nc类别数，xc:预测中置信度大于阈值的索引
     nc = prediction.shape[2] - 5  # number of classes
     xc = prediction[..., 4] > conf_thres  # candidates
 
     # Checks
+    # 对置信度阈值与iou阈值进行检查，range [0, 1]
     assert 0 <= conf_thres <= 1, f'Invalid Confidence threshold {conf_thres}, valid values are between 0.0 and 1.0'
     assert 0 <= iou_thres <= 1, f'Invalid IoU {iou_thres}, valid values are between 0.0 and 1.0'
 
     # Settings
+    # 设置最小的wh, 最大的wh，max_wh在计算nms的时候作为一个偏移量
     min_wh, max_wh = 2, 4096  # (pixels) minimum and maximum box width and height
+    # 选取预测中最多30000个框做nms
     max_nms = 30000  # maximum number of boxes into torchvision.ops.nms()
+    # 限制做nms时间为10s，超时直接退出
     time_limit = 10.0  # seconds to quit after
+    # 是否需要冗余的检测结果，仅在merge=True时起作用
     redundant = True  # require redundant detections
+    # 多标签,即一个box保留多个类别
     multi_label &= nc > 1  # multiple labels per box (adds 0.5ms/img)
     merge = False  # use merge-NMS
 
     t = time.time()
     output = [torch.zeros((0, 6), device=prediction.device)] * prediction.shape[0]
+    # prediction为一个batch的预测，下面是对每张图片做处理
+    # prediction的shape为[N, M, 5+nc], N为图片数，M为每张图片预测总数
     for xi, x in enumerate(prediction):  # image index, image inference
         # Apply constraints
         # x[((x[..., 2:4] < min_wh) | (x[..., 2:4] > max_wh)).any(1), 4] = 0  # width-height
+        # 选取当前图片的预测
         x = x[xc[xi]]  # confidence
 
+        # 拼接真实label
         # Cat apriori labels if autolabelling
         if labels and len(labels[xi]):
             l = labels[xi]
@@ -541,14 +629,20 @@ def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=Non
         box = xywh2xyxy(x[:, :4])
 
         # Detections matrix nx6 (xyxy, conf, cls)
+        # 整合预测(n, nc + 5) -> (n, 6)
         if multi_label:
+            # 多标签的保留多个预测类别, 大于conf_thres的都保留
             i, j = (x[:, 5:] > conf_thres).nonzero(as_tuple=False).T
             x = torch.cat((box[i], x[i, j + 5, None], j[:, None].float()), 1)
         else:  # best class only
+            # 仅保留可能性最大的类别预测
+            # 找到最大的新置信度与其索引
             conf, j = x[:, 5:].max(1, keepdim=True)
+            # 拼接[box预测框, conf置信度, cls预测类别]
             x = torch.cat((box, conf, j.float()), 1)[conf.view(-1) > conf_thres]
 
         # Filter by class
+        # 根据参数classes筛选保留的类别
         if classes is not None:
             x = x[(x[:, 5:6] == torch.tensor(classes, device=x.device)).any(1)]
 
@@ -561,20 +655,28 @@ def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=Non
         if not n:  # no boxes
             continue
         elif n > max_nms:  # excess boxes
+            # 将x按照conf排序，取前max_nms个
             x = x[x[:, 4].argsort(descending=True)[:max_nms]]  # sort by confidence
 
         # Batched NMS
         c = x[:, 5:6] * (0 if agnostic else max_wh)  # classes
+        # boxes加上一个偏移量，方便做nms
         boxes, scores = x[:, :4] + c, x[:, 4]  # boxes (offset by class), scores
+        # nms
         i = torchvision.ops.nms(boxes, scores, iou_thres)  # NMS
         if i.shape[0] > max_det:  # limit detections
             i = i[:max_det]
+        # 融合预测框
         if merge and (1 < n < 3E3):  # Merge NMS (boxes merged using weighted mean)
             # update boxes as boxes(i,4) = weights(i,n) * boxes(n,4)
+            # 计算iou并取大于iou阈值的索引, 返回的shape：[N, M], N为boxes[i]的个数，M为boxes的个数
             iou = box_iou(boxes[i], boxes) > iou_thres  # iou matrix
+            # 根据score和iou设置权重
             weights = iou * scores[None]  # box weights
+            # 融合边框
             x[i, :4] = torch.mm(weights, x[:, :4]).float() / weights.sum(1, keepdim=True)  # merged boxes
             if redundant:
+                # 只取iou之和大于1的融合边框
                 i = i[iou.sum(1) > 1]  # require redundancy
 
         output[xi] = x[i]
@@ -586,6 +688,8 @@ def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=Non
 
 
 def strip_optimizer(f='best.pt', s=''):  # from utils.general import *; strip_optimizer()
+    """在训练时pt文件会保存其他东西，比如优化器，训练结果等，
+    strip_optimizer将权重中保存的其他东西去掉，仅保留网络权重"""
     # Strip optimizer from 'f' to finalize training, optionally save as 's'
     x = torch.load(f, map_location=torch.device('cpu'))
     if x.get('ema'):
@@ -593,15 +697,23 @@ def strip_optimizer(f='best.pt', s=''):  # from utils.general import *; strip_op
     for k in 'optimizer', 'training_results', 'wandb_id', 'ema', 'updates':  # keys
         x[k] = None
     x['epoch'] = -1
+    # 模型转为F16
     x['model'].half()  # to FP16
     for p in x['model'].parameters():
         p.requires_grad = False
+    # 再保存
     torch.save(x, s or f)
     mb = os.path.getsize(s or f) / 1E6  # filesize
     print(f"Optimizer stripped from {f},{(' saved as %s,' % s) if s else ''} {mb:.1f}MB")
 
 
 def print_mutation(hyp, results, yaml_file='hyp_evolved.yaml', bucket=''):
+    """
+    写入results和对应的hyp到evolve.txt
+    evolve.txt文件每一行为一次进化的结果
+    一行中前七个数字为(P, R, mAP, F1, test_losses=(box, obj, cls))，之后为hyp
+    保存hyp到yaml文件
+    """
     # Print mutation results to evolve.txt (for use with train.py --evolve)
     a = '%10s' * len(hyp) % tuple(hyp.keys())  # hyperparam keys
     b = '%10.3g' * len(hyp) % tuple(hyp.values())  # hyperparam values
@@ -620,6 +732,7 @@ def print_mutation(hyp, results, yaml_file='hyp_evolved.yaml', bucket=''):
     np.savetxt('evolve.txt', x, '%10.3g')  # save sort by fitness
 
     # Save yaml
+    # 保存进化的hyp超参数
     for i, k in enumerate(hyp.keys()):
         hyp[k] = float(x[0, i + 7])
     with open(yaml_file, 'w') as f:
@@ -633,6 +746,12 @@ def print_mutation(hyp, results, yaml_file='hyp_evolved.yaml', bucket=''):
 
 
 def apply_classifier(x, model, img, im0):
+    """再对检测之后的目标进行二次分类
+     :param x：yolov3预测
+     :param model：分类模型
+     :param img：网络输入img
+     :param im0：原图
+     """
     # Apply a second stage classifier to yolo outputs
     im0 = [im0] if isinstance(im0, np.ndarray) else im0
     for i, d in enumerate(x):  # per image
@@ -668,6 +787,15 @@ def apply_classifier(x, model, img, im0):
 
 
 def save_one_box(xyxy, im, file='image.jpg', gain=1.02, pad=10, square=False, BGR=False, save=True):
+    """将预测框截图保存下来
+     xyxy:左上角右下角坐标
+     :param im:原图
+     :param gain:对预测框进行resize
+     :param pad:对预测框进行pad
+     :param square:是否保存为正方形
+     :param BGR:当前图片是否为BGR通道
+     :param save：是否保存
+     """
     # Save image crop as {file} with crop size multiple {gain} and {pad} pixels. Save and/or return crop
     xyxy = torch.tensor(xyxy).view(-1, 4)
     b = xyxy2xywh(xyxy)  # boxes
