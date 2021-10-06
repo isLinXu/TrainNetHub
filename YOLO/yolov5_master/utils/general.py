@@ -18,6 +18,7 @@ from itertools import repeat
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
 from subprocess import check_output
+from zipfile import ZipFile
 
 import cv2
 import numpy as np
@@ -40,6 +41,9 @@ pd.options.display.max_columns = 10
 cv2.setNumThreads(0)  # prevent OpenCV from multithreading (incompatible with PyTorch DataLoader)
 # 设置numpy的线程数
 os.environ['NUMEXPR_MAX_THREADS'] = str(min(os.cpu_count(), 8))  # NumExpr max threads
+
+FILE = Path(__file__).resolve()
+ROOT = FILE.parents[1]  # YOLOv5 root directory
 
 
 class Profile(contextlib.ContextDecorator):
@@ -94,12 +98,19 @@ def set_logging(rank=-1, verbose=True):
         level=logging.INFO if (verbose and rank in [-1, 0]) else logging.WARN)
 
 
+def print_args(name, opt):
+    # Print argparser arguments
+    print(colorstr(f'{name}: ') + ', '.join(f'{k}={v}' for k, v in vars(opt).items()))
+
+
 def init_seeds(seed=0):
-    """设置固定随机种子"""
-    # Initialize random number generator (RNG) seeds
+    # Initialize random number generator (RNG) seeds https://pytorch.org/docs/stable/notes/randomness.html
+    # cudnn seed 0 settings are slower and more reproducible, else faster and less reproducible
+    import torch.backends.cudnn as cudnn
     random.seed(seed)
     np.random.seed(seed)
-    init_torch_seeds(seed)
+    torch.manual_seed(seed)
+    cudnn.benchmark, cudnn.deterministic = (False, True) if seed == 0 else (True, False)
 
 
 def get_latest_run(search_dir='.'):
@@ -150,7 +161,7 @@ def is_colab():
     try:
         import google.colab
         return True
-    except Exception as e:
+    except ImportError:
         return False
 
 
@@ -163,9 +174,14 @@ def is_pip():
 
 
 def is_ascii(s=''):
-    # Is string composed of all ASCII (no UTF) characters?
+    # Is string composed of all ASCII (no UTF) characters? (note str().isascii() introduced in python 3.7)
     s = str(s)  # convert list, tuple, None, etc. to str
     return len(s.encode().decode('ascii', 'ignore')) == len(s)
+
+
+def is_chinese(s='人工智能'):
+    # Is string composed of any Chinese characters?
+    return re.search('[\u4e00-\u9fff]', s)
 
 
 def emojis(str=''):

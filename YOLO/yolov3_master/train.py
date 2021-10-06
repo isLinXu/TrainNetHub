@@ -670,7 +670,7 @@ def train(hyp, opt, device, tb_writer=None):
         if not opt.evolve:
             if is_coco:  # COCO dataset
                 for m in [last, best] if best.exists() else [last]:  # speed, mAP tests
-                    results, _, _ = test.test(opt.data,
+                    results, _, _ = val.test(opt.data,
                                               batch_size=batch_size * 2,
                                               imgsz=imgsz_test,
                                               conf_thres=0.001,
