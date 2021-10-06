@@ -1,23 +1,28 @@
-# Plotting utils
+# YOLOv5 🚀 by Ultralytics, GPL-3.0 license
+"""
+Plotting utils
+"""
 
+import math
+import os
 from copy import copy
 from pathlib import Path
 
 import cv2
-import math
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sn
 import torch
-import yaml
 from PIL import Image, ImageDraw, ImageFont
 
-from YOLO.yolov5_master.utils.general import xywh2xyxy, xyxy2xywh
+from YOLO.yolov5_master.utils.general import user_config_dir, is_ascii, is_chinese, xywh2xyxy, xyxy2xywh
 from YOLO.yolov5_master.utils.metrics import fitness
 
 # Settings
+CONFIG_DIR = user_config_dir()  # Ultralytics settings dir
+RANK = int(os.getenv('RANK', -1))
 matplotlib.rc('font', **{'size': 11})
 matplotlib.use('Agg')  # for writing to files only
 
@@ -45,6 +50,75 @@ class Colors:
 
 
 colors = Colors()  # create instance for 'from utils.plots import colors'
+
+
+def check_font(font='Arial.ttf', size=10):
+    # Return a PIL TrueType Font, downloading to CONFIG_DIR if necessary
+    font = Path(font)
+    font = font if font.exists() else (CONFIG_DIR / font.name)
+    try:
+        return ImageFont.truetype(str(font) if font.exists() else font.name, size)
+    except Exception as e:  # download if missing
+        url = "https://ultralytics.com/assets/" + font.name
+        print(f'Downloading {url} to {font}...')
+        torch.hub.download_url_to_file(url, str(font), progress=False)
+        return ImageFont.truetype(str(font), size)
+
+
+class Annotator:
+    if RANK in (-1, 0):
+        check_font()  # download TTF if necessary
+
+    # YOLOv5 Annotator for train/val mosaics and jpgs and detect/hub inference annotations
+    def __init__(self, im, line_width=None, font_size=None, font='Arial.ttf', pil=False, example='abc'):
+        assert im.data.contiguous, 'Image not contiguous. Apply np.ascontiguousarray(im) to Annotator() input images.'
+        self.pil = pil or not is_ascii(example) or is_chinese(example)
+        if self.pil:  # use PIL
+            self.im = im if isinstance(im, Image.Image) else Image.fromarray(im)
+            self.draw = ImageDraw.Draw(self.im)
+            self.font = check_font(font='Arial.Unicode.ttf' if is_chinese(example) else font,
+                                   size=font_size or max(round(sum(self.im.size) / 2 * 0.035), 12))
+        else:  # use cv2
+            self.im = im
+        self.lw = line_width or max(round(sum(im.shape) / 2 * 0.003), 2)  # line width
+
+    def box_label(self, box, label='', color=(128, 128, 128), txt_color=(255, 255, 255)):
+        # Add one xyxy box to image with label
+        if self.pil or not is_ascii(label):
+            self.draw.rectangle(box, width=self.lw, outline=color)  # box
+            if label:
+                w, h = self.font.getsize(label)  # text width, height
+                outside = box[1] - h >= 0  # label fits outside box
+                self.draw.rectangle([box[0],
+                                     box[1] - h if outside else box[1],
+                                     box[0] + w + 1,
+                                     box[1] + 1 if outside else box[1] + h + 1], fill=color)
+                # self.draw.text((box[0], box[1]), label, fill=txt_color, font=self.font, anchor='ls')  # for PIL>8.0
+                self.draw.text((box[0], box[1] - h if outside else box[1]), label, fill=txt_color, font=self.font)
+        else:  # cv2
+            p1, p2 = (int(box[0]), int(box[1])), (int(box[2]), int(box[3]))
+            cv2.rectangle(self.im, p1, p2, color, thickness=self.lw, lineType=cv2.LINE_AA)
+            if label:
+                tf = max(self.lw - 1, 1)  # font thickness
+                w, h = cv2.getTextSize(label, 0, fontScale=self.lw / 3, thickness=tf)[0]  # text width, height
+                outside = p1[1] - h - 3 >= 0  # label fits outside box
+                p2 = p1[0] + w, p1[1] - h - 3 if outside else p1[1] + h + 3
+                cv2.rectangle(self.im, p1, p2, color, -1, cv2.LINE_AA)  # filled
+                cv2.putText(self.im, label, (p1[0], p1[1] - 2 if outside else p1[1] + h + 2), 0, self.lw / 3, txt_color,
+                            thickness=tf, lineType=cv2.LINE_AA)
+
+    def rectangle(self, xy, fill=None, outline=None, width=1):
+        # Add rectangle to image (PIL-only)
+        self.draw.rectangle(xy, fill, outline, width)
+
+    def text(self, xy, text, txt_color=(255, 255, 255)):
+        # Add text to image (PIL-only)
+        w, h = self.font.getsize(text)  # text width, height
+        self.draw.text((xy[0], xy[1] - h + 1), text, fill=txt_color, font=self.font)
+
+    def result(self):
+        # Return annotated image as array
+        return np.asarray(self.im)
 
 
 def hist2d(x, y, n=100):
@@ -75,6 +149,14 @@ def butter_lowpass_filtfilt(data, cutoff=1500, fs=50000, order=5):
 
     b, a = butter_lowpass(cutoff, fs, order=order)
     return filtfilt(b, a, data)  # forward-backward filter
+
+def output_to_target(output):
+    # Convert model output to target format [batch_id, class_id, x, y, w, h, conf]
+    targets = []
+    for i, o in enumerate(output):
+        for *box, conf, cls in o.cpu().numpy():
+            targets.append([i, cls, *list(*xyxy2xywh(np.array(box)[None])), conf])
+    return np.array(targets)
 
 
 def plot_one_box(x, im, color=(128, 128, 128), label=None, line_thickness=3):
@@ -183,98 +265,63 @@ def plot_images(images, targets, paths=None, fname='images.jpg', names=None, max
         images = images.cpu().float().numpy()
     if isinstance(targets, torch.Tensor):
         targets = targets.cpu().numpy()
-
-    # un-normalise
     if np.max(images[0]) <= 1:
-        images *= 255
-
-    # 设置线宽度，字体大小
-    tl = 3  # line thickness
-    tf = max(tl - 1, 1)  # font thickness
+        images *= 255.0  # de-normalise (optional)
     bs, _, h, w = images.shape  # batch size, _, height, width
     bs = min(bs, max_subplots)  # limit plot images
-    # 子画布的数量, 总数量为ns * ns
     ns = np.ceil(bs ** 0.5)  # number of subplots (square)
 
-    # Check if we should resize
-    # 图片超过设定的最大size，要进行resize
-    scale_factor = max_size / max(h, w)
-    if scale_factor < 1:
-        h = math.ceil(scale_factor * h)
-        w = math.ceil(scale_factor * w)
-
-    # 初始化大图
+    # Build Image
     mosaic = np.full((int(ns * h), int(ns * w), 3), 255, dtype=np.uint8)  # init
-    for i, img in enumerate(images):
+    for i, im in enumerate(images):
         if i == max_subplots:  # if last batch has fewer images than we expect
             break
+        x, y = int(w * (i // ns)), int(h * (i % ns))  # block origin
+        im = im.transpose(1, 2, 0)
+        mosaic[y:y + h, x:x + w, :] = im
 
-        # 获取每张小图在整张大图上的左上角位置
-        block_x = int(w * (i // ns))
-        block_y = int(h * (i % ns))
+    # Resize (optional)
+    scale = max_size / ns / max(h, w)
+    if scale < 1:
+        h = math.ceil(scale * h)
+        w = math.ceil(scale * w)
+        mosaic = cv2.resize(mosaic, tuple(int(x * ns) for x in (w, h)))
 
-        # CHW -> HWC
-        img = img.transpose(1, 2, 0)
-        # resize图片
-        if scale_factor < 1:
-            img = cv2.resize(img, (w, h))
-
-        # 将小图放在大图对应位置上
-        mosaic[block_y:block_y + h, block_x:block_x + w, :] = img
+    # Annotate
+    fs = int((h + w) * ns * 0.01)  # font size
+    annotator = Annotator(mosaic, line_width=round(fs / 10), font_size=fs, pil=True)
+    for i in range(i + 1):
+        x, y = int(w * (i // ns)), int(h * (i % ns))  # block origin
+        annotator.rectangle([x, y, x + w, y + h], None, (255, 255, 255), width=2)  # borders
+        if paths:
+            annotator.text((x + 5, y + 5 + h), text=Path(paths[i]).name[:40], txt_color=(220, 220, 220))  # filenames
         if len(targets) > 0:
-            # 获取当前batch_i的标签
-            image_targets = targets[targets[:, 0] == i]
-            boxes = xywh2xyxy(image_targets[:, 2:6]).T
-            classes = image_targets[:, 1].astype('int')
-            # image_targets.shape[1] == 6时，表示batch_id, cls,xyxy标签,可视化的是标签，不是预测框
-            labels = image_targets.shape[1] == 6  # labels if no conf column
-            conf = None if labels else image_targets[:, 6]  # check for confidence presence (label vs pred)
+            ti = targets[targets[:, 0] == i]  # image targets
+            boxes = xywh2xyxy(ti[:, 2:6]).T
+            classes = ti[:, 1].astype('int')
+            labels = ti.shape[1] == 6  # labels if no conf column
+            conf = None if labels else ti[:, 6]  # check for confidence presence (label vs pred)
 
             if boxes.shape[1]:
                 # 如果边框是归一化了的，则放大到基于原图
                 if boxes.max() <= 1.01:  # if normalized with tolerance 0.01
                     boxes[[0, 2]] *= w  # scale to pixels
                     boxes[[1, 3]] *= h
-                # 如果不是归一化的，且之前图片进行缩放了，则乘以scale_factor
-                elif scale_factor < 1:  # absolute coords need scale if image scales
-                    boxes *= scale_factor
-            # 标签边框加上 相对于大图左上角的坐标
-            boxes[[0, 2]] += block_x
-            boxes[[1, 3]] += block_y
-            # 在子图上画框
-            for j, box in enumerate(boxes.T):
-                # 获取类别，画框颜色，类别名字
-                cls = int(classes[j])
+                elif scale < 1:  # absolute coords need scale if image scales
+                    boxes *= scale
+            boxes[[0, 2]] += x
+            boxes[[1, 3]] += y
+            for j, box in enumerate(boxes.T.tolist()):
+                cls = classes[j]
                 color = colors(cls)
                 cls = names[cls] if names else cls
-                # 如果是画预测框，则只画conf > 0.25的, 否则当置信度阈值设置较低时，会有太多的框
                 if labels or conf[j] > 0.25:  # 0.25 conf thresh
-                    label = '%s' % cls if labels else '%s %.1f' % (cls, conf[j])
-                    plot_one_box(box, mosaic, label=label, color=color, line_thickness=tl)
-
-        # Draw image filename labels
-        if paths:
-            # 大图左上角显示上图片路径名, 长度不超过40
-            label = Path(paths[i]).name[:40]  # trim to 40 char
-            t_size = cv2.getTextSize(label, 0, fontScale=tl / 3, thickness=tf)[0]
-            cv2.putText(mosaic, label, (block_x + 5, block_y + t_size[1] + 5), 0, tl / 3, [220, 220, 220], thickness=tf,
-                        lineType=cv2.LINE_AA)
-
-        # Image border
-        # 画每个子图的边界
-        cv2.rectangle(mosaic, (block_x, block_y), (block_x + w, block_y + h), (255, 255, 255), thickness=3)
-
-    # 保存图片
-    if fname:
-        r = min(1280. / max(h, w) / ns, 1.0)  # ratio to limit image size
-        mosaic = cv2.resize(mosaic, (int(ns * w * r), int(ns * h * r)), interpolation=cv2.INTER_AREA)
-        # cv2.imwrite(fname, cv2.cvtColor(mosaic, cv2.COLOR_BGR2RGB))  # cv2 save
-        Image.fromarray(mosaic).save(fname)  # PIL save
-    return mosaic
+                    label = f'{cls}' if labels else f'{cls} {conf[j]:.1f}'
+                    annotator.box_label(box, label, color=color)
+    annotator.im.save(fname)  # save
 
 
 def plot_lr_scheduler(optimizer, scheduler, epochs=300, save_dir=''):
-    """画学习率衰减图"""
     # Plot LR simulating training for full epochs
     optimizer, scheduler = copy(optimizer), copy(scheduler)  # do not modify originals
     y = []
@@ -323,16 +370,16 @@ def plot_targets_txt():  # from utils.plots import *; plot_targets_txt()
     plt.savefig('targets.jpg', dpi=200)
 
 
-def plot_study_txt(path='', x=None):  # from utils.plots import *; plot_study_txt()
-    """通过val.py画yolov5学习曲线，也就是README.md中的曲线图"""
-    # Plot study.txt generated by val.py
+def plot_val_study(file='', dir='', x=None):  # from utils.plots import *; plot_val_study()
+    # Plot file=study.txt generated by val.py (or plot all study*.txt in dir)
+    save_dir = Path(file).parent if file else Path(dir)
     plot2 = False  # plot additional results
     if plot2:
         ax = plt.subplots(2, 4, figsize=(10, 6), tight_layout=True)[1].ravel()
 
     fig2, ax2 = plt.subplots(1, 1, figsize=(8, 4), tight_layout=True)
     # for f in [Path(path) / f'study_coco_{x}.txt' for x in ['yolov5s6', 'yolov5m6', 'yolov5l6', 'yolov5x6']]:
-    for f in sorted(Path(path).glob('study*.txt')):
+    for f in sorted(save_dir.glob('study*.txt')):
         y = np.loadtxt(f, dtype=np.float32, usecols=[0, 1, 2, 3, 7, 8, 9], ndmin=2).T
         x = np.arange(y.shape[1]) if x is None else np.array(x)
         if plot2:
@@ -343,6 +390,39 @@ def plot_study_txt(path='', x=None):  # from utils.plots import *; plot_study_tx
 
         j = y[3].argmax() + 1
         ax2.plot(y[5, 1:j], y[3, 1:j] * 1E2, '.-', linewidth=2, markersize=8,
+                 label=f.stem.replace('study_coco_', '').replace('yolo', 'YOLO'))
+
+    ax2.plot(1E3 / np.array([209, 140, 97, 58, 35, 18]), [34.6, 40.5, 43.0, 47.5, 49.7, 51.5],
+             'k.-', linewidth=2, markersize=8, alpha=.25, label='EfficientDet')
+
+    ax2.grid(alpha=0.2)
+    ax2.set_yticks(np.arange(20, 60, 5))
+    ax2.set_xlim(0, 57)
+    ax2.set_ylim(30, 55)
+    ax2.set_xlabel('GPU Speed (ms/img)')
+    ax2.set_ylabel('COCO AP val')
+    ax2.legend(loc='lower right')
+    f = save_dir / 'study.png'
+    print(f'Saving {f}...')
+    plt.savefig(f, dpi=300)
+
+def plot_study_txt(path='', x=None):  # from utils.plots import *; plot_study_txt()
+    # Plot study.txt generated by test.py
+    fig, ax = plt.subplots(2, 4, figsize=(10, 6), tight_layout=True)
+    # ax = ax.ravel()
+
+    fig2, ax2 = plt.subplots(1, 1, figsize=(8, 4), tight_layout=True)
+    # for f in [Path(path) / f'study_coco_{x}.txt' for x in ['yolov5s6', 'yolov5m6', 'yolov5l6', 'yolov5x6']]:
+    for f in sorted(Path(path).glob('study*.txt')):
+        y = np.loadtxt(f, dtype=np.float32, usecols=[0, 1, 2, 3, 7, 8, 9], ndmin=2).T
+        x = np.arange(y.shape[1]) if x is None else np.array(x)
+        s = ['P', 'R', 'mAP@.5', 'mAP@.5:.95', 't_inference (ms/img)', 't_NMS (ms/img)', 't_total (ms/img)']
+        # for i in range(7):
+        #     ax[i].plot(x, y[i], '.-', linewidth=2, markersize=8)
+        #     ax[i].set_title(s[i])
+
+        j = y[3].argmax() + 1
+        ax2.plot(y[6, 1:j], y[3, 1:j] * 1E2, '.-', linewidth=2, markersize=8,
                  label=f.stem.replace('study_coco_', '').replace('yolo', 'YOLO'))
 
     ax2.plot(1E3 / np.array([209, 140, 97, 58, 35, 18]), [34.6, 40.5, 43.0, 47.5, 49.7, 51.5],
@@ -436,13 +516,13 @@ def profile_idetection(start=0, stop=0, labels=(), save_dir=''):
                     a.remove()
         except Exception as e:
             print('Warning: Plotting error for %s; %s' % (f, e))
-
     ax[1].legend()
     plt.savefig(Path(save_dir) / 'idetection_profile.png', dpi=200)
 
 
-def plot_evolve(evolve_csv=Path('path/to/evolve.csv')):  # from utils.plots import *; plot_evolve()
+def plot_evolve(evolve_csv='path/to/evolve.csv'):  # from utils.plots import *; plot_evolve()
     # Plot evolve.csv hyp evolution results
+    evolve_csv = Path(evolve_csv)
     data = pd.read_csv(evolve_csv)
     keys = [x.strip() for x in data.columns]
     x = data.values
@@ -462,6 +542,7 @@ def plot_evolve(evolve_csv=Path('path/to/evolve.csv')):  # from utils.plots impo
         print('%15s: %.3g' % (k, mu))
     f = evolve_csv.with_suffix('.png')  # filename
     plt.savefig(f, dpi=200)
+    plt.close()
     print(f'Saved {f}')
 
 
@@ -493,6 +574,7 @@ def plot_results(file='path/to/results.csv', dir=''):
             print(f'Warning: Plotting error for {f}: {e}')
     ax[1].legend()
     fig.savefig(save_dir / 'results.png', dpi=200)
+    plt.close()
 
 
 def feature_visualization(x, module_type, stage, n=32, save_dir=Path('runs/detect/exp')):
@@ -522,3 +604,4 @@ def feature_visualization(x, module_type, stage, n=32, save_dir=Path('runs/detec
 
             print(f'Saving {save_dir / f}... ({n}/{channels})')
             plt.savefig(save_dir / f, dpi=300, bbox_inches='tight')
+            plt.close()
