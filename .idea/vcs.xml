@@ -2,7 +2,5 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/YOLO/yolov3" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/YOLO/yolov3_master" vcs="Git" />
   </component>
 </project>
