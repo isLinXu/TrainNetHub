@@ -1,6 +1,4 @@
 ## TrainNetHub
-
-<div align="center"><p><a align="left" href="https://github.com/isLinXu/TrainNetHub/" target="_blank"><img width="250" src="img/stove.png"></a></p><br><div><a href="https://github.com/isLinXu/TrainNetHub/actions"><img </a></div>
 <div align="center">
 <p>
 <a align="left" href="https://github.com/isLinXu/TrainNetHub/" target="_blank">
