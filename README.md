@@ -1,6 +1,6 @@
 ## TrainNetHub
 
-![stove](/home/linxu/PycharmProjects/TrainNetHub/img/stove.png)
+![stove](img/stove.png)
 
 ### 1.Description 简要介绍
 
