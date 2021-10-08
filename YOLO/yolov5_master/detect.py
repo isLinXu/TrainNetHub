@@ -23,7 +23,6 @@ from YOLO.yolov5_master.utils.general import check_img_size, check_requirements,
 from YOLO.yolov5_master.utils.plots import colors, plot_one_box
 from YOLO.yolov5_master.utils.torch_utils import select_device, load_classifier, time_sync
 
-
 @torch.no_grad()
 def run(
         # source(⭐) 指定权重文件
@@ -72,7 +71,7 @@ def run(
         ):
 
     # 是否保存图片
-    global model
+    global model, session
     save_img = not nosave and not source.endswith('.txt')  # save inference images
     # 判断预测源是否为视频流
     webcam = source.isnumeric() or source.endswith('.txt') or source.lower().startswith(
