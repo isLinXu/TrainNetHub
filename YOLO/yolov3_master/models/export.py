@@ -15,11 +15,11 @@ import torch
 import torch.nn as nn
 from torch.utils.mobile_optimizer import optimize_for_mobile
 
-import models
-from models.experimental import attempt_load
-from utils.activations import Hardswish, SiLU
-from utils.general import colorstr, check_img_size, check_requirements, file_size, set_logging
-from utils.torch_utils import select_device
+import YOLO.yolov3_master.models
+from YOLO.yolov3_master.models.experimental import attempt_load
+from YOLO.yolov3_master.utils.activations import Hardswish, SiLU
+from YOLO.yolov3_master.utils.general import colorstr, check_img_size, check_requirements, file_size, set_logging
+from YOLO.yolov3_master.utils.torch_utils import select_device
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
