@@ -232,14 +232,8 @@ def run(
                         c = int(cls)  # integer class
                         label = None if hide_labels else (names[c] if hide_conf else f'{names[c]} {conf:.2f}')
 
-                        if names[c] == 'tower_up':
-                            # 画框
-                            plot_one_box(xyxy, im0, label=label, color=(0,255,0), line_thickness=line_thickness)
-                        elif names[c] == 'tower_down':
-                            plot_one_box(xyxy, im0, label=label, color=(0,0,255), line_thickness=line_thickness)
-                        else:
-                            # 画框
-                            plot_one_box(xyxy, im0, label=label, color=colors(c, True), line_thickness=line_thickness)
+                        # 画框
+                        plot_one_box(xyxy, im0, label=label, color=colors(c, True), line_thickness=line_thickness)
 
                         if save_crop:
                             # 保存crop
@@ -354,8 +348,6 @@ def detect_main(opt):
 if __name__ == "__main__":
     opt = detect_parse_opt()
     opt.source = '/home/hxzh02/文档/航拍数据集/VOCdevkit_tower_part/JPEGImages/2040.jpg'
-    opt.weights = '/home/hxzh02/PycharmProjects/TrainNetHub/YOLO/yolov5_master/runs/train/tower_yolov5s16/weights/best.pt'
-    opt.view_img = False
+    opt.weights = '/home/hxzh02/MyGithub/TrainNetHub/YOLO/yolov5_master/runs/train/tower_updown_yolov5s/weights/best.pt'
+    opt.view_img = True
     detect_main(opt)
-
-
