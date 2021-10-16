@@ -105,6 +105,11 @@ def time_sync():
         torch.cuda.synchronize()
     return time.time()
 
+def time_synchronized():
+    # pytorch-accurate time
+    if torch.cuda.is_available():
+        torch.cuda.synchronize()
+    return time.time()
 
 def profile(input, ops, n=10, device=None):
     """计算某个操作ops的前向推理时间，反向传播时间, flops, 参数量"""

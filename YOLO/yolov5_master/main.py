@@ -47,7 +47,7 @@ def train_(object_name):
     t_opt.cfg = rpath  + '/models/yolov5s.yaml'
     # 预训练权重
     # weights/yolov5l.pt,yolov5l6.pt,yolov5m.pt,yolov5m6.pt,yolov5s6.pt,yolov5x.pt,yolov5x6.pt
-    t_opt.weights = rpath + '/weight/yolov5s.pt'
+    t_opt.weights = rpath + '/weights/yolov5s.pt'
     # 设置单次训练所选取的样本数
     t_opt.batch_size = 16
     # 设置训练样本训练的迭代次数
