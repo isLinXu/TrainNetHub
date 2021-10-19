@@ -1,3 +1,7 @@
+# Custom 
+tmp
+*.pkl
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -20,12 +24,10 @@ parts/
 sdist/
 var/
 wheels/
-share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
 MANIFEST
-.idea
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -40,7 +42,6 @@ pip-delete-this-directory.txt
 # Unit test / coverage reports
 htmlcov/
 .tox/
-.nox/
 .coverage
 .coverage.*
 .cache
@@ -75,10 +76,6 @@ target/
 # Jupyter Notebook
 .ipynb_checkpoints
 
-# IPython
-profile_default/
-ipython_config.py
-
 # pyenv
 .python-version
 
@@ -109,15 +106,22 @@ venv.bak/
 
 # mypy
 .mypy_cache/
-.dmypy.json
-dmypy.json
+.DS_STORE
 
-# Pyre type checker
-.pyre/
-/YOLO/yolov5_master/runs/
-/YOLO/yolov3_master/runs/
-/YOLO/yolov5_master/data/VOCdevkit_tower/
-/YOLO/yolov5_master/data/VOCdevkit_tower_part/
-/YOLO/yolov3_master/weights/
-/YOLO/yolov3_master/runs/
-/YOLO/yolov5_master/data/
+# PyCharm
+.idea*
+*.xml
+
+# Custom
+tensorflow/
+example/test*
+*.pth*
+examples/imagenet/data/
+!examples/imagenet/data/README.md
+tmp
+tf_to_pytorch/pretrained_tensorflow
+!tf_to_pytorch/pretrained_tensorflow/download.sh
+examples/imagenet/run.sh
+
+
+
