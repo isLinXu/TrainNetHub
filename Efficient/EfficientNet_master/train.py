@@ -22,9 +22,10 @@ import torchvision.datasets as datasets
 # import torchvision.models as models
 from torchvision import transforms
 import matplotlib.pyplot as plt
-from efficientnet_pytorch import FireSmokeEfficientNet
 
-parser = argparse.ArgumentParser(description='PyTorch Fire and Smoke Training with EfficientNet')
+from Efficient.EfficientNet_master.efficientnet_pytorch import EfficientNet
+
+parser = argparse.ArgumentParser(description='PyTorch Training with EfficientNet')
 parser.add_argument('-da','--data', metavar='DIR',default="./cropdata",
                     help='path to dataset')
 parser.add_argument('-a', '--arch', metavar='ARCH', default='efficientnet-b0',
@@ -144,11 +145,11 @@ def main_worker(gpu, ngpus_per_node, args):
     # create model
     if args.pretrained:
         print("=> using pre-trained model '{}'".format(args.arch))
-        model = FireSmokeEfficientNet.from_pretrained(args)
+        model = EfficientNet.from_pretrained(args)
         print(model)
     else:
         print("=> creating model '{}'".format(args.arch))
-        model = FireSmokeEfficientNet.from_pretrained(args)
+        model = EfficientNet.from_pretrained(args)
         print(model)
 
     if args.distributed:
@@ -463,6 +464,9 @@ def accuracy(output, target, topk=(1,)):
             correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)
             res.append(correct_k.mul_(100.0 / batch_size))
         return res
+
+
+# def t_train():
 
 
 if __name__ == '__main__':
