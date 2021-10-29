@@ -1,6 +1,6 @@
 import argparse
 
-from wandb_utils import WandbLogger
+from YOLO.yolov3_master.utils.wandb_logging.wandb_utils import WandbLogger
 
 WANDB_ARTIFACT_PREFIX = 'wandb-artifact://'
 

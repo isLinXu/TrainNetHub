@@ -7,11 +7,10 @@ import random
 from shutil import copyfile
 
 # 分类类别
-classes = ["tower_up", "tower_down"]
+classes = ["tower_head", "tower_foot","tower_body", "tower_body_down"]
 
 # 划分训练集比率
 TRAIN_RATIO = 90
-
 
 def clear_hidden_files(path):
     '''
@@ -49,14 +48,14 @@ def convert(size, box):
     return (x, y, w, h)
 
 
-def convert_annotation(image_id):
+def convert_annotation(dataset_name,image_id):
     '''
     转换annotation
     :param image_id:
     :return:
     '''
-    in_file = open('data/VOCdevkit_tower/VOC2007/Annotations/%s.xml' % image_id)
-    out_file = open('data/VOCdevkit_tower/VOC2007/YOLOLabels/%s.txt' % image_id, 'w')
+    in_file = open('data/'+ dataset_name + '/VOC2007/Annotations/%s.xml' % image_id)
+    out_file = open('data/'+ dataset_name + '/VOC2007/YOLOLabels/%s.txt' % image_id, 'w')
     tree = ET.parse(in_file)
     root = tree.getroot()
     size = root.find('size')
@@ -77,10 +76,9 @@ def convert_annotation(image_id):
     in_file.close()
     out_file.close()
 
-if __name__ == '__main__':
-    
+def trans_prepare_config(dataset_name='VOCdevkit_tower_part'):
     wd = os.getcwd()
-    data_base_dir = os.path.join(wd, "data/VOCdevkit_tower/")
+    data_base_dir = os.path.join(wd, "data/" + dataset_name + "/")
     if not os.path.isdir(data_base_dir):
         os.mkdir(data_base_dir)
     work_sapce_dir = os.path.join(data_base_dir, "VOC2007/")
@@ -122,7 +120,7 @@ if __name__ == '__main__':
     if not os.path.isdir(yolov5_labels_test_dir):
         os.mkdir(yolov5_labels_test_dir)
     clear_hidden_files(yolov5_labels_test_dir)
-    
+
     train_file = open(os.path.join(wd, "data/yolov5_train.txt"), 'w')
     test_file = open(os.path.join(wd, "data/yolov5_val.txt"), 'w')
     train_file.close()
@@ -145,23 +143,31 @@ if __name__ == '__main__':
             label_path = os.path.join(yolo_labels_dir, label_name)
         prob = random.randint(1, 100)
         print("Probability: %d" % prob)
-        
+
         # 训练集
-        if (prob < TRAIN_RATIO):  
+        if (prob < TRAIN_RATIO):
             if os.path.exists(annotation_path):
                 train_file.write(image_path + '\n')
                 # 转换label
-                convert_annotation(nameWithoutExtention)  
+                convert_annotation(dataset_name=dataset_name,image_id=nameWithoutExtention)
                 copyfile(image_path, yolov5_images_train_dir + voc_path)
                 copyfile(label_path, yolov5_labels_train_dir + label_name)
-        else: 
+        else:
             # 测试集
             if os.path.exists(annotation_path):
                 test_file.write(image_path + '\n')
                 # 转换label
-                convert_annotation(nameWithoutExtention)  
+                convert_annotation(dataset_name=dataset_name,image_id=nameWithoutExtention)
                 copyfile(image_path, yolov5_images_test_dir + voc_path)
                 copyfile(label_path, yolov5_labels_test_dir + label_name)
     train_file.close()
     test_file.close()
+
+
+if __name__ == '__main__':
+    trans_prepare_config()
+
+
+
+
 
