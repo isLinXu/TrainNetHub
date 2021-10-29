@@ -17,7 +17,7 @@ from YOLO.yolov5_master.utils import *
 from YOLO.yolov5_master.utils import torch_utils
 from YOLO.yolov5_master.utils.datasets import *
 from YOLO.yolov5_master.utils.general import non_max_suppression, scale_coords, xyxy2xywh
-from YOLO.yolov5_master.utils.plots import plot_one_box, colors
+from YOLO.yolov5_master.utils.plots import plot_one_box, colors, plot_one_box_circle
 from YOLO.yolov5_master.utils.torch_utils import load_classifier
 
 
@@ -192,9 +192,13 @@ if __name__ == '__main__':
     start_log()
     # 参数设置
     # weights = 'yolov5s.pt'
-    weights = '/home/hxzh02/MyGithub/TrainNetHub/YOLO/yolov5_master/runs/train/coco128_yolov5s/weights/best.pt'
-    imgdir = '/home/hxzh02/文档/coco128/images/train2017'
-    outdir = '/home/hxzh02/文档/coco128/annations'
+    weights = '/home/hxzh02/MyGithub/TrainNetHub/YOLO/yolov5_master/runs/train/bm-yolov5s4/weights/best.pt'
+    # 设置图片路径
+    # imgdir = '/home/hxzh02/文档/coco128/images/train2017'
+    imgdir = '/media/hxzh02/SB@home/hxzh/Dataset/无人机杆塔航拍数据集/杆塔主体/Image'
+    # 输出xml标注文件
+    # outdir = '/home/hxzh02/文档/coco128/annations'
+    outdir = '/media/hxzh02/SB@home/hxzh/Dataset/无人机杆塔航拍数据集/杆塔主体/annotaions/'
 
     if (os.path.exists(imgdir)):
         # 选择设备类型
@@ -230,7 +234,7 @@ if __name__ == '__main__':
         for image_name in IMAGES_LIST:
             # print(image_name)
             # 判断后缀只处理jpg文件
-            if image_name.endswith('.jpg'):
+            if image_name.endswith('.jpg') or image_name.endswith('.JPG'):
                 image = cv2.imread(os.path.join(imgdir, image_name))
                 # 进行检测并将预测信息存入list
                 conf_threshold = 0.4
