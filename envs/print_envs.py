@@ -13,6 +13,7 @@ from collections import namedtuple
 import torch
 
 PY3 = sys.version_info >= (3, 0)
+ngpu = 1
 
 # System Environment Information
 SystemEnv = namedtuple('SystemEnv', [
@@ -342,6 +343,8 @@ def main():
     print("Collecting environment information...")
     output = get_pretty_env_info()
     print(output)
+    device = torch.device("cuda:0" if (torch.cuda.is_available() and ngpu > 0) else "cpu")
+    print("[use device]:",device)
 
 
 if __name__ == '__main__':
