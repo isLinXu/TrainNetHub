@@ -1,6 +1,4 @@
-# https://raw.githubusercontent.com/pytorch/pytorch/master/torch/utils/collect_env.py
-# This script outputs relevant system environment info
-# Run it with `python collect_env.py`.
+
 from __future__ import absolute_import, division, print_function, unicode_literals
 import re
 import subprocess
@@ -13,6 +11,7 @@ from collections import namedtuple
 import torch
 
 PY3 = sys.version_info >= (3, 0)
+ngpu = 1
 
 # System Environment Information
 SystemEnv = namedtuple('SystemEnv', [
@@ -342,6 +341,9 @@ def main():
     print("Collecting environment information...")
     output = get_pretty_env_info()
     print(output)
+    device = torch.device("cuda:0" if (torch.cuda.is_available() and ngpu > 0) else "cpu")
+    print("[use device]:",device)
+    print(torch.rand(3, 3).cuda())
 
 
 if __name__ == '__main__':
