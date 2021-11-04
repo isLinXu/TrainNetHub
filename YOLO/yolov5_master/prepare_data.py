@@ -7,8 +7,8 @@ import random
 from shutil import copyfile
 
 # 分类类别
-classes = ["tower_head", "tower_foot","tower_body", "tower_body_down"]
-
+classes = ["tower_body", "tower_head","tower_foot", "tower_body_down"]
+# classes = ['smoke']
 # 划分训练集比率
 TRAIN_RATIO = 90
 
@@ -63,10 +63,12 @@ def convert_annotation(dataset_name,image_id):
     h = int(size.find('height').text)
 
     for obj in root.iter('object'):
-        difficult = obj.find('difficult').text
         cls = obj.find('name').text
-        if cls not in classes or int(difficult) == 1:
-            continue
+        if len(classes) > 1:
+            difficult = obj.find('difficult').text
+            if cls not in classes or int(difficult) == 1:
+                continue
+
         cls_id = classes.index(cls)
         xmlbox = obj.find('bndbox')
         b = (float(xmlbox.find('xmin').text), float(xmlbox.find('xmax').text), float(xmlbox.find('ymin').text),
@@ -165,7 +167,9 @@ def trans_prepare_config(dataset_name='VOCdevkit_tower_part'):
 
 
 if __name__ == '__main__':
-    trans_prepare_config()
+    dataset_name = 'VOCdevkit_tower_part'
+    # dataset_name = 'datasets_smoke'
+    trans_prepare_config(dataset_name)
 
 
 

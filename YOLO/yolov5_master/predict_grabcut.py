@@ -132,12 +132,12 @@ if __name__ == '__main__':
     start_log()
     # 参数设置
     # weights = 'yolov5s.pt'
-    weights = '/home/hxzh02/MyGithub/TrainNetHub/YOLO/yolov5_master/weights/yolov5s.pt'
-    # weights = '/home/hxzh02/MyGithub/TrainNetHub/YOLO/yolov5_master/runs/train/bm-yolov5s4/weights/best.pt'
+    # weights = '/home/hxzh02/MyGithub/TrainNetHub/YOLO/yolov5_master/weights/yolov5s.pt'
+    weights = '/home/hxzh02/MyGithub/TrainNetHub/YOLO/yolov5_master/runs/train/bm-yolov5s4/weights/best.pt'
     # 设置图片路径
     imgdir = '/home/hxzh02/文档/coco128/images/train2017/'
     # imgdir = '/home/hxzh02/下载/archive (1)/Dataset/train/cars'
-    # imgdir = '/media/hxzh02/SB@home/hxzh/Dataset/无人机杆塔航拍数据集/杆塔主体/Image'
+    imgdir = '/media/hxzh02/SB@home/hxzh/Dataset/无人机杆塔航拍数据集/杆塔主体/VOCdevkit_tower_part/JPEGImages'
     # imgdir = '/media/hxzh02/SB@home/hxzh/Dataset/无人机杆塔航拍数据集/杆塔主体/Image/383.jpg'
     # 输出xml标注文件
     # outdir = '/home/hxzh02/文档/coco128/annations'
