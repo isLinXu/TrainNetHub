@@ -1,0 +1,10 @@
+**/__pycache__/**
+**/.vscode/**
+**/.ipynb_checkpoints/**
+imagenet_model/**
+yolo_model/**
+test_images/**
+yolo.bak
+yolo.dat
+yolo.dir
+yolo_db.dat

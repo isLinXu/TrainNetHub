@@ -6,6 +6,6 @@ list: [path1/images/, path2/images/]
 train: ./data/VOCdevkit_tower_part/images/train/   
 val: ./data/VOCdevkit_tower_part/images/val/  
 # number of classes
-nc: 3
+nc: 4
 # class names
-names: ['tower_body','tower_head','tower_foot']
+names: ['tower_body','tower_head','tower_foot','tower_body_down']
