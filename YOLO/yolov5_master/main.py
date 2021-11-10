@@ -89,11 +89,11 @@ def detect_(object_name):
 
 if __name__ == '__main__':
     # 设置训练任务/生成模型名称
-    # object_name = 'coco128_yolov5s'
-    object_name = 'yolov5s_tower_DJI_1'
+    object_name = 'coco128_yolov5s'
+    # object_name = 'yolov5s_tower_DJI_1'
     # object_name = 'yolov5s_smoke'
     # 模型训练
-    # train_(object_name)
+    train_(object_name)
 
     # 模型预测
-    detect_(object_name)
+    # detect_(object_name)
