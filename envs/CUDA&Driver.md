@@ -111,7 +111,42 @@ NVIDIA® CUDA® Toolkit 的发行说明可以在http://docs.nvidia.com/cuda/cuda
 
   
 
-  
+We recommend Anaconda as Python package management system. Please refer to pytorch.org for the detail of PyTorch (torch) installation. The following is the corresponding torchvision versions and supported Python versions.
+
+torch	torchvision	python
+main / nightly	main / nightly	>=3.6, <=3.9
+1.10.0	0.11.1	>=3.6, <=3.9
+1.9.1	0.10.1	>=3.6, <=3.9
+1.9.0	0.10.0	>=3.6, <=3.9
+1.8.2	0.9.2	>=3.6, <=3.9
+1.8.1	0.9.1	>=3.6, <=3.9
+1.8.0	0.9.0	>=3.6, <=3.9
+1.7.1	0.8.2	>=3.6, <=3.9
+1.7.0	0.8.1	>=3.6, <=3.8
+1.7.0	0.8.0	>=3.6, <=3.8
+1.6.0	0.7.0	>=3.6, <=3.8
+1.5.1	0.6.1	>=3.5, <=3.8
+1.5.0	0.6.0	>=3.5, <=3.8
+1.4.0	0.5.0	==2.7, >=3.5, <=3.8
+1.3.1	0.4.2	==2.7, >=3.5, <=3.7
+1.3.0	0.4.1	==2.7, >=3.5, <=3.7
+1.2.0	0.4.0	==2.7, >=3.5, <=3.7
+1.1.0	0.3.0	==2.7, >=3.5, <=3.7
+<=1.0.1	0.2.2	==2.7, >=3.5, <=3.7
+Anaconda:
+
+conda install torchvision -c pytorch
+pip:
+
+pip install torchvision
+From source:
+
+python setup.py install
+# or, for OSX
+# MACOSX_DEPLOYMENT_TARGET=10.9 CC=clang CXX=clang++ python setup.py install
+In case building TorchVision from source fails, install the nightly version of PyTorch following the linked guide on the contributing page and retry the install.
+
+By default, GPU support is built if CUDA is found and torch.cuda.is_available() is true. It's possible to force building GPU support by setting FORCE_CUDA=1 environment variable, which is useful when building a docker image.
 
 
 
