@@ -18,15 +18,18 @@ import torch
 from tqdm import tqdm
 
 FILE = Path(__file__).resolve()
-sys.path.append(FILE.parents[0].as_posix())  # add yolov5/ to path
+ROOT = FILE.parents[0]  # YOLOv5 root directory
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))  # add ROOT to PATH
+ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
 from YOLO.yolov5_master.models.experimental import attempt_load
 from YOLO.yolov5_master.utils.datasets import create_dataloader
 from YOLO.yolov5_master.utils.general import coco80_to_coco91_class, check_dataset, check_img_size, check_requirements, \
     check_suffix, check_yaml, box_iou, non_max_suppression, scale_coords, xyxy2xywh, xywh2xyxy, set_logging, \
-    increment_path, colorstr
+    increment_path, colorstr, print_args
 from YOLO.yolov5_master.utils.metrics import ap_per_class, ConfusionMatrix
-from YOLO.yolov5_master.utils.plots import plot_images, output_to_target, plot_study_txt
+from YOLO.yolov5_master.utils.plots import output_to_target, plot_images, plot_val_study
 from YOLO.yolov5_master.utils.torch_utils import select_device, time_sync
 from YOLO.yolov5_master.utils.callbacks import Callbacks
 
@@ -93,7 +96,7 @@ def run(data,
         save_hybrid=False,  # save label+prediction hybrid results to *.txt
         save_conf=False,  # save confidences in --save-txt labels
         save_json=False,  # save a COCO-JSON results file
-        project='runs/val',  # save to project/name
+        project=ROOT / 'runs/val',  # save to project/name
         name='exp',  # save to project/name
         exist_ok=False,  # existing project/name ok, do not increment
         half=True,  # use FP16 half-precision inference
@@ -146,8 +149,7 @@ def run(data,
     # Half
     # 如果设备不是cpu且opt.half=True，则将模型由Float32转为Float16，提高前向传播的速度
     half &= device.type != 'cpu'  # half precision only supported on CUDA
-    if half:
-        model.half()
+    model.half() if half else model.float()
 
     # Configure
     model.eval()
@@ -164,8 +166,9 @@ def run(data,
         # 创建一个全0数组测试一下前向传播是否正常运行
         if device.type != 'cpu':
             model(torch.zeros(1, 3, imgsz, imgsz).to(device).type_as(next(model.parameters())))  # run once
+        pad = 0.0 if task == 'speed' else 0.5
         task = task if task in ('train', 'val', 'test') else 'val'  # path to train/val/test images
-        dataloader = create_dataloader(data[task], imgsz, batch_size, gs, single_cls, pad=0.5, rect=True,
+        dataloader = create_dataloader(data[task], imgsz, batch_size, gs, single_cls, pad=pad, rect=True,
                                        prefix=colorstr(f'{task}: '))[0]
 
     # 注意这里rect参数为True，yolov5的测试评估是基于矩形推理的, 且有个0.5的填充
@@ -402,16 +405,15 @@ def parse_opt():
     parser.add_argument('--save-hybrid', action='store_true', help='save label+prediction hybrid results to *.txt')
     parser.add_argument('--save-conf', action='store_true', help='save confidences in --save-txt labels')
     parser.add_argument('--save-json', action='store_true', help='save a COCO-JSON results file')
-    parser.add_argument('--project', default='runs/val', help='save to project/name')
+    parser.add_argument('--project', default=ROOT / 'runs/val', help='save to project/name')
     parser.add_argument('--name', default='exp', help='save to project/name')
     parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
     parser.add_argument('--half', action='store_true', help='use FP16 half-precision inference')
     opt = parser.parse_args()
-    # 设置参数save_json
+    opt.data = check_yaml(opt.data)  # check YAML
     opt.save_json |= opt.data.endswith('coco.yaml')
     opt.save_txt |= opt.save_hybrid
-    # ccheck_yaml检查文件是否存在
-    opt.data = check_yaml(opt.data)  # check YAML
+    print_args(FILE.stem, opt)
     return opt
 
 
@@ -421,19 +423,19 @@ def main(opt):
     print(colorstr('val: ') + ', '.join(f'{k}={v}' for k, v in vars(opt).items()))
     check_requirements(requirements=FILE.parent / 'support/requirements.txt', exclude=('tensorboard', 'thop'))
 
-    # 检查环境
     if opt.task in ('train', 'val', 'test'):  # run normally
         run(**vars(opt))
 
     # 评估模型速度
     elif opt.task == 'speed':  # speed benchmarks
+        # python val.py --task speed --data coco.yaml --batch 1 --weights yolov5n.pt yolov5s.pt...
         for w in opt.weights if isinstance(opt.weights, list) else [opt.weights]:
             run(opt.data, weights=w, batch_size=opt.batch_size, imgsz=opt.imgsz, conf_thres=.25, iou_thres=.45,
-                save_json=False, plots=False)
+                device=opt.device, save_json=False, plots=False)
 
     # task == 'study'时，就评估模型在各个尺度下的指标并可视化
     elif opt.task == 'study':  # run over a range of settings and save/plot
-        # python val.py --task study --data coco.yaml --iou 0.7 --weights yolov5s.pt yolov5m.pt yolov5l.pt yolov5x.pt
+        # python val.py --task study --data coco.yaml --iou 0.7 --weights yolov5n.pt yolov5s.pt...
         x = list(range(256, 1536 + 128, 128))  # x axis (image sizes)
         for w in opt.weights if isinstance(opt.weights, list) else [opt.weights]:
             f = f'study_{Path(opt.data).stem}_{Path(w).stem}.txt'  # filename to save to
@@ -441,11 +443,11 @@ def main(opt):
             for i in x:  # img-size
                 print(f'\nRunning {f} point {i}...')
                 r, _, t = run(opt.data, weights=w, batch_size=opt.batch_size, imgsz=i, conf_thres=opt.conf_thres,
-                              iou_thres=opt.iou_thres, save_json=opt.save_json, plots=False)
+                              iou_thres=opt.iou_thres, device=opt.device, save_json=opt.save_json, plots=False)
                 y.append(r + t)  # results and times
             np.savetxt(f, y, fmt='%10.4g')  # save
         os.system('zip -r study.zip study_*.txt')
-        plot_study_txt(x=x)  # plot
+        plot_val_study(x=x)  # plot
 
 
 if __name__ == "__main__":
