@@ -1,10 +1,13 @@
-# YOLOv5 image augmentation functions
+# YOLOv5 🚀 by Ultralytics, GPL-3.0 license
+"""
+Image augmentation functions
+"""
 
 import logging
+import math
 import random
 
 import cv2
-import math
 import numpy as np
 
 from YOLO.yolov5_master.utils.general import colorstr, segment2box, resample_segments, check_version
@@ -21,10 +24,13 @@ class Albumentations:
             check_version(A.__version__, '1.0.3')  # version requirement
 
             self.transform = A.Compose([
-                A.Blur(p=0.1),                  # 随机的kernel大小模糊图片, p为概率
-                A.MedianBlur(p=0.1),            # 使用中值滤波模糊图片
-                A.ToGray(p=0.01)],              # 转灰度图
-                # 转换标签相关参数
+                A.Blur(p=0.01),
+                A.MedianBlur(p=0.01),
+                A.ToGray(p=0.01),
+                A.CLAHE(p=0.01),
+                A.RandomBrightnessContrast(p=0.0),
+                A.RandomGamma(p=0.0),
+                A.ImageCompression(quality_lower=75, p=0.0)],
                 bbox_params=A.BboxParams(format='yolo', label_fields=['class_labels']))
 
             logging.info(colorstr('albumentations: ') + ', '.join(f'{x}' for x in self.transform.transforms if x.p))
@@ -45,7 +51,6 @@ def augment_hsv(im, hgain=0.5, sgain=0.5, vgain=0.5):
     if hgain or sgain or vgain:
         # 随机取-1到1三个实数，乘以hyp中的hsv三通道的系数
         r = np.random.uniform(-1, 1, 3) * [hgain, sgain, vgain] + 1  # random gains
-        # 分离通道
         hue, sat, val = cv2.split(cv2.cvtColor(im, cv2.COLOR_BGR2HSV))
         dtype = im.dtype  # uint8
 

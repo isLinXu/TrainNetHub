@@ -1,8 +1,9 @@
-
+# YOLOv5 🚀 by Ultralytics, GPL-3.0 license
 """
 Activation functions
 激活函数
 """
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
