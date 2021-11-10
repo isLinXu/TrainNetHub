@@ -1,4 +1,7 @@
-# YOLOv5 dataset utils and dataloaders
+# YOLOv5 🚀 by Ultralytics, GPL-3.0 license
+"""
+Dataloaders and dataset utils
+"""
 
 import glob
 import hashlib
@@ -12,6 +15,7 @@ from itertools import repeat
 from multiprocessing.pool import ThreadPool, Pool
 from pathlib import Path
 from threading import Thread
+from zipfile import ZipFile
 
 import cv2
 import numpy as np
@@ -23,8 +27,8 @@ from torch.utils.data import Dataset
 from tqdm import tqdm
 
 from YOLO.yolov5_master.utils.augmentations import Albumentations, augment_hsv, copy_paste, letterbox, mixup, random_perspective
-from YOLO.yolov5_master.utils.general import check_requirements, check_file, check_dataset, xywh2xyxy, xywhn2xyxy, xyxy2xywhn, \
-    xyn2xy, segments2boxes, clean_str
+from YOLO.yolov5_master.utils.general import check_dataset, check_requirements, check_yaml, clean_str, segments2boxes, \
+    xywh2xyxy, xywhn2xyxy, xyxy2xywhn, xyn2xy
 from YOLO.yolov5_master.utils.torch_utils import torch_distributed_zero_first
 
 # Parameters
@@ -144,6 +148,7 @@ def create_dataloader(path, imgsz, batch_size, stride, single_cls=False, hyp=Non
 class InfiniteDataLoader(torch.utils.data.dataloader.DataLoader):
     """重载工作的数据加载器,使用与vanilla DataLoader相同的语法"""
     """ Dataloader that reuses workers
+
     Uses same syntax as vanilla DataLoader
     """
 
@@ -176,9 +181,10 @@ class _RepeatSampler(object):
 
 
 class LoadImages:  # for inference
-    def __init__(self, path, img_size=640, stride=32):
+    # YOLOv5 image/video dataloader, i.e. `python detect.py --source image.jpg/vid.mp4`
+    def __init__(self, path, img_size=640, stride=32, auto=True):
         # os.path.abspath(p)返回p的绝对路径
-        p = str(Path(path).absolute())  # os-agnostic absolute path
+        p = str(Path(path).resolve())  # os-agnostic absolute path
         # 如果采用正则化表达式提取图片/视频，直接使用glob获取文件路径
         if '*' in p:
             files = sorted(glob.glob(p, recursive=True))  # glob
@@ -205,6 +211,7 @@ class LoadImages:  # for inference
         self.nf = ni + nv  # number of files            # number of files # 总的文件数量
         self.video_flag = [False] * ni + [True] * nv    # 设置判断是否为视频的bool变量，方便后面单独对视频进行处理
         self.mode = 'image'                              # 初始化模块信息，代码中对于mode=images与mode=video有不同处理
+        self.auto = auto
         # 如果包含视频文件，这将初始化opencv中的视频模块，cap=cv2.VideoCapture等
         if any(videos):
             self.new_video(videos[0])  # new video
@@ -258,7 +265,7 @@ class LoadImages:  # for inference
 
         # Padded resize
         # 对图片进行resize+pad
-        img = letterbox(img0, self.img_size, stride=self.stride)[0]
+        img = letterbox(img0, self.img_size, stride=self.stride, auto=self.auto)[0]
 
         # Convert
         # BGR转为RGB格式，channel轴换到前面
@@ -281,6 +288,7 @@ class LoadImages:  # for inference
 
 
 class LoadWebcam:  # for inference
+    # YOLOv5 local webcam dataloader, i.e. `python detect.py --source 0`
     def __init__(self, pipe='0', img_size=640, stride=32):
         self.img_size = img_size
         self.stride = stride
@@ -322,7 +330,8 @@ class LoadWebcam:  # for inference
 
 
 class LoadStreams:  # multiple IP or RTSP cameras
-    def __init__(self, sources='streams.txt', img_size=640, stride=32):
+    # YOLOv5 streamloader, i.e. `python detect.py --source 'rtsp://example.com/media.mp4'  # RTSP, RTMP, HTTP streams`
+    def __init__(self, sources='streams.txt', img_size=640, stride=32, auto=True):
         # 初始化mode为stream(视频流)
         self.mode = 'stream'
         self.img_size = img_size
@@ -339,6 +348,7 @@ class LoadStreams:  # multiple IP or RTSP cameras
         n = len(sources)
         self.imgs, self.fps, self.frames, self.threads = [None] * n, [0] * n, [0] * n, [None] * n
         self.sources = [clean_str(x) for x in sources]  # clean source names for later
+        self.auto = auto
         for i, s in enumerate(sources):  # index, source
             # Start thread to read frames from video stream
             # 打印当前视频/总视频数/视频流地址
@@ -363,7 +373,7 @@ class LoadStreams:  # multiple IP or RTSP cameras
             # 读取当前画面
             _, self.imgs[i] = cap.read()  # guarantee first frame
             # 创建多线程读取视频流，daemon表示主线程结束时子线程也结束
-            self.threads[i] = Thread(target=self.update, args=([i, cap]), daemon=True)
+            self.threads[i] = Thread(target=self.update, args=([i, cap, s]), daemon=True)
             print(f" success ({self.frames[i]} frames {w}x{h} at {self.fps[i]:.2f} FPS)")
             self.threads[i].start()
         print('')  # newline
@@ -371,12 +381,12 @@ class LoadStreams:  # multiple IP or RTSP cameras
         # check for common shapes
         # 获取进行resize+pad之后的shape，
         # letterbox函数默认(参数auto=True)是按照矩形推理进行填充
-        s = np.stack([letterbox(x, self.img_size, stride=self.stride)[0].shape for x in self.imgs], 0)  # shapes
+        s = np.stack([letterbox(x, self.img_size, stride=self.stride, auto=self.auto)[0].shape for x in self.imgs])
         self.rect = np.unique(s, axis=0).shape[0] == 1  # rect inference if all shapes equal
         if not self.rect:
             print('WARNING: Different stream shapes detected. For optimal performance supply similarly-shaped streams.')
 
-    def update(self, i, cap):
+    def update(self, i, cap, stream):
         # Read stream `i` frames in daemon thread
         n, f, read = 0, self.frames[i], 1  # frame number, frame array, inference every 'read' frame
         while cap.isOpened() and n < f:
@@ -385,7 +395,12 @@ class LoadStreams:  # multiple IP or RTSP cameras
             cap.grab()
             if n % read == 0:
                 success, im = cap.retrieve()
-                self.imgs[i] = im if success else self.imgs[i] * 0
+                if success:
+                    self.imgs[i] = im
+                else:
+                    print('WARNING: Video stream unresponsive, please check your IP camera connection.')
+                    self.imgs[i] *= 0
+                    cap.open(stream)  # re-open stream if signal was lost
             time.sleep(1 / self.fps[i])  # wait time
 
     def __iter__(self):
@@ -401,7 +416,7 @@ class LoadStreams:  # multiple IP or RTSP cameras
         # Letterbox
         img0 = self.imgs.copy()
         # 对图片进行resize+pad
-        img = [letterbox(x, self.img_size, auto=self.rect, stride=self.stride)[0] for x in img0]
+        img = [letterbox(x, self.img_size, stride=self.stride, auto=self.rect and self.auto)[0] for x in img0]
 
         # Stack
         # 将读取的图片拼接到一起
@@ -423,7 +438,10 @@ def img2label_paths(img_paths):
     return [sb.join(x.rsplit(sa, 1)).rsplit('.', 1)[0] + '.txt' for x in img_paths]
 
 
-class LoadImagesAndLabels(Dataset):  # for training/testing
+class LoadImagesAndLabels(Dataset): # for training/testing
+    # YOLOv5 train_loader/val_loader, loads images and labels for training and validation
+    cache_version = 0.5  # dataset labels *.cache version
+
     def __init__(self, path, img_size=640, batch_size=16, augment=False, hyp=None, rect=False, image_weights=False,
                  cache_images=False, single_cls=False, stride=32, pad=0.0, prefix=''):
         self.img_size = img_size                                        # 输入图片分辨率大小
@@ -432,7 +450,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
         self.image_weights = image_weights                              # 图片采样
         self.rect = False if image_weights else rect                    # 矩形训练
         # load 4 images at a time into a mosaic (only during training)
-        self.mosaic = self.augment and not self.rect                    # mosaic数据增强
+        self.mosaic = self.augment and not self.rect                   # mosaic数据增强
         self.mosaic_border = [-img_size // 2, -img_size // 2]           # mosaic数据增强边界
         self.stride = stride                                            # 模型下采样的总步长
         self.path = path                                                # 数据路径
@@ -476,7 +494,8 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
         try:
             # 如果有cache文件，直接加载
             cache, exists = np.load(cache_path, allow_pickle=True).item(), True  # load dict
-            assert cache['version'] == 0.4 and cache['hash'] == get_hash(self.label_files + self.img_files)
+            assert cache['version'] == self.cache_version  # same version
+            assert cache['hash'] == get_hash(self.label_files + self.img_files)  # same hash
         except:
             # 否则调用cache_labels缓存标签及标签相关信息
             cache, exists = self.cache_labels(cache_path, prefix), False  # cache
@@ -578,7 +597,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
         desc = f"{prefix}Scanning '{path.parent / path.stem}' images and labels..."
         # 这里是多进程调用verify_image_label
         with Pool(NUM_THREADS) as pool:
-            pbar = tqdm(pool.imap_unordered(verify_image_label, zip(self.img_files, self.label_files, repeat(prefix))),
+            pbar = tqdm(pool.imap(verify_image_label, zip(self.img_files, self.label_files, repeat(prefix))),
                         desc=desc, total=len(self.img_files))
             for im_file, l, shape, segments, nm_f, nf_f, ne_f, nc_f, msg in pbar:
                 nm += nm_f
@@ -602,7 +621,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
         x['hash'] = get_hash(self.label_files + self.img_files)
         x['results'] = nf, nm, ne, nc, len(self.img_files)
         x['msgs'] = msgs  # warnings
-        x['version'] = 0.4  # cache version
+        x['version'] = self.cache_version  # cache version
         try:
             # 保存cache
             np.save(path, x)  # save cache for next time
@@ -674,6 +693,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
             # Albumentations
             # 调用albumentations增强
             img, labels = self.albumentations(img, labels)
+            nl = len(labels)  # update after albumentations
 
             # HSV color-space
             # 随机改变图片的色调（H），饱和度（S），亮度（V）
@@ -780,15 +800,14 @@ def load_image(self, i):
 
 def load_mosaic(self, index):
     """mosaic数据增强，拼接四张图"""
-    # loads images in a 4-mosaic
-
-    global img4, y1a, y2a, x1a, x2a, y1b, y2b, x1b, x2b
+    # YOLOv5 4-mosaic loader. Loads 1 image + 3 random images into a 4-image mosaic
     labels4, segments4 = [], []
     s = self.img_size
     # 随机取mosaic中心点
     yc, xc = [int(random.uniform(-x, 2 * s + x)) for x in self.mosaic_border]  # mosaic center x, y
     # 随机取其他三张图片的索引
     indices = [index] + random.choices(self.indices, k=3)  # 3 additional image indices
+    random.shuffle(indices)
     for i, index in enumerate(indices):
         # Load image
         # 加载图片
@@ -855,12 +874,11 @@ def load_mosaic(self, index):
 
 def load_mosaic9(self, index):
     """功能同上，只不过拼接9张图"""
-    # loads images in a 9-mosaic
-
-    global wp, w0, hp, c, h0, img9
+    # YOLOv5 9-mosaic loader. Loads 1 image + 8 random images into a 9-image mosaic
     labels9, segments9 = [], []
     s = self.img_size
     indices = [index] + random.choices(self.indices, k=8)  # 8 additional image indices
+    random.shuffle(indices)
     for i, index in enumerate(indices):
         # Load image 加载图片
         img, _, (h, w) = load_image(self, index)
@@ -1023,7 +1041,7 @@ def verify_image_label(args):
     # Verify one image-label pair
     im_file, lb_file, prefix = args
     # 漏掉的标签数量，找到的标签数量，空的标签数量，错误标签数量
-    nm, nf, ne, nc = 0, 0, 0, 0  # number missing, found, empty, corrupt
+    nm, nf, ne, nc, msg, segments = 0, 0, 0, 0, '', []  # number (missing, found, empty, corrupt), message, segments
     # 因为这个方法是循环调用的，累计上面的数据不在这里做，所以以下遇到相应的情况，只是设置为1
     try:
         # verify images
@@ -1039,7 +1057,9 @@ def verify_image_label(args):
         if im.format.lower() in ('jpg', 'jpeg'):
             with open(im_file, 'rb') as f:
                 f.seek(-2, 2)
-                assert f.read() == b'\xff\xd9', 'corrupted JPEG'
+                if f.read() != b'\xff\xd9':  # corrupt JPEG
+                    Image.open(im_file).save(im_file, format='JPEG', subsampling=0, quality=100)  # re-save image
+                    msg = f'{prefix}WARNING: corrupt JPEG restored and saved {im_file}'
 
         # verify labels
         # 验证标签
@@ -1075,7 +1095,7 @@ def verify_image_label(args):
             # 不存在标签文件，则nm = 1
             nm = 1  # label missing
             l = np.zeros((0, 5), dtype=np.float32)
-        return im_file, l, shape, segments, nm, nf, ne, nc, ''
+        return im_file, l, shape, segments, nm, nf, ne, nc, msg
     except Exception as e:
         # 捕捉到错误则nc=1
         nc = 1
@@ -1103,22 +1123,32 @@ def dataset_stats(path='coco128.yaml', autodownload=False, verbose=False, profil
         # Unzip data.zip TODO: CONSTRAINT: path/to/abc.zip MUST unzip to 'path/to/abc/'
         if str(path).endswith('.zip'):  # path is data.zip
             assert Path(path).is_file(), f'Error unzipping {path}, file not found'
-            assert os.system(f'unzip -q {path} -d {path.parent}') == 0, f'Error unzipping {path}'
-            dir = path.with_suffix('')  # dataset directory
+            ZipFile(path).extractall(path=path.parent)  # unzip
+            dir = path.with_suffix('')  # dataset directory == zip name
             return True, str(dir), next(dir.rglob('*.yaml'))  # zipped, data_dir, yaml_path
         else:  # path is data.yaml
             return False, None, path
 
     def hub_ops(f, max_dim=1920):
-        # HUB ops for 1 image 'f'
-        im = Image.open(f)
-        r = max_dim / max(im.height, im.width)  # ratio
-        if r < 1.0:  # image too large
-            im = im.resize((int(im.width * r), int(im.height * r)))
-        im.save(im_dir / Path(f).name, quality=75)  # save
+        # HUB ops for 1 image 'f': resize and save at reduced quality in /dataset-hub for web/app viewing
+        f_new = im_dir / Path(f).name  # dataset-hub image filename
+        try:  # use PIL
+            im = Image.open(f)
+            r = max_dim / max(im.height, im.width)  # ratio
+            if r < 1.0:  # image too large
+                im = im.resize((int(im.width * r), int(im.height * r)))
+            im.save(f_new, quality=75)  # save
+        except Exception as e:  # use OpenCV
+            print(f'WARNING: HUB ops PIL failure {f}: {e}')
+            im = cv2.imread(f)
+            im_height, im_width = im.shape[:2]
+            r = max_dim / max(im_height, im_width)  # ratio
+            if r < 1.0:  # image too large
+                im = cv2.resize(im, (int(im_width * r), int(im_height * r)), interpolation=cv2.INTER_LINEAR)
+            cv2.imwrite(str(f_new), im)
 
     zipped, data_dir, yaml_path = unzip(Path(path))
-    with open(check_file(yaml_path), encoding='ascii', errors='ignore') as f:
+    with open(check_yaml(yaml_path), errors='ignore') as f:
         data = yaml.safe_load(f)  # data dict
         if zipped:
             data['path'] = data_dir  # TODO: should this be dir.resolve()?

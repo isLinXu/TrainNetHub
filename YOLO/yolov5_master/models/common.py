@@ -15,8 +15,9 @@ from PIL import Image
 from torch.cuda import amp
 
 from YOLO.yolov5_master.utils.datasets import exif_transpose, letterbox
-from YOLO.yolov5_master.utils.general import non_max_suppression, make_divisible, scale_coords, increment_path, xyxy2xywh, save_one_box,is_ascii,colorstr
-from YOLO.yolov5_master.utils.plots import colors, plot_one_box,Annotator
+from YOLO.yolov5_master.utils.general import colorstr, increment_path, make_divisible, non_max_suppression, save_one_box, \
+    scale_coords, xyxy2xywh
+from YOLO.yolov5_master.utils.plots import Annotator, colors
 from YOLO.yolov5_master.utils.torch_utils import time_sync
 
 LOGGER = logging.getLogger(__name__)
@@ -286,6 +287,16 @@ class AutoShape(nn.Module):
         LOGGER.info('AutoShape already enabled, skipping... ')  # model already converted to model.autoshape()
         return self
 
+    def _apply(self, fn):
+        # Apply to(), cpu(), cuda(), half() to model tensors that are not parameters or registered buffers
+        self = super()._apply(fn)
+        m = self.model.model[-1]  # Detect()
+        m.stride = fn(m.stride)
+        m.grid = list(map(fn, m.grid))
+        if isinstance(m.anchor_grid, list):
+            m.anchor_grid = list(map(fn, m.anchor_grid))
+        return self
+
     @torch.no_grad()
     def forward(self, imgs, size=640, augment=False, profile=False):
         # Inference from various sources. For height=640, width=1280, RGB images example inputs are:
@@ -383,13 +394,13 @@ class Detections:
         """可视化预测结果"""
         crops = []
         for i, (im, pred) in enumerate(zip(self.imgs, self.pred)):
-            str = f'image {i + 1}/{len(self.pred)}: {im.shape[0]}x{im.shape[1]} '
+            s = f'image {i + 1}/{len(self.pred)}: {im.shape[0]}x{im.shape[1]} '  # string
             if pred.shape[0]:
                 for c in pred[:, -1].unique():
                     n = (pred[:, -1] == c).sum()  # detections per class
-                    str += f"{n} {self.names[int(c)]}{'s' * (n > 1)}, "  # add to string
+                    s += f"{n} {self.names[int(c)]}{'s' * (n > 1)}, "  # add to string
                 if show or save or render or crop:
-                    annotator = Annotator(im, pil=not self.ascii)
+                    annotator = Annotator(im, example=str(self.names))
                     for *box, conf, cls in reversed(pred):  # xyxy, confidence, class
                         label = f'{self.names[int(cls)]} {conf:.2f}'
                         if crop:
@@ -400,11 +411,11 @@ class Detections:
                             annotator.box_label(box, label, color=colors(cls))
                     im = annotator.im
             else:
-                str += '(no detections)'
+                s += '(no detections)'
 
             im = Image.fromarray(im.astype(np.uint8)) if isinstance(im, np.ndarray) else im  # from np
             if pprint:
-                LOGGER.info(str.rstrip(', '))
+                LOGGER.info(s.rstrip(', '))
             # 显示预测图
             if show:
                 im.show(self.files[i])  # show

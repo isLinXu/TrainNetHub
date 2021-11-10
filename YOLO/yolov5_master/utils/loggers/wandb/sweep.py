@@ -6,9 +6,9 @@ import wandb
 FILE = Path(__file__).absolute()
 sys.path.append(FILE.parents[3].as_posix())  # add utils/ to path
 
-from train import train, parse_opt
-from utils.general import increment_path
-from utils.torch_utils import select_device
+from YOLO.yolov5_master.train import train, train_parse_opt
+from YOLO.yolov5_master.utils.general import increment_path
+from YOLO.yolov5_master.utils.torch_utils import select_device
 
 
 def sweep():
@@ -17,7 +17,7 @@ def sweep():
     hyp_dict = vars(wandb.config).get("_items")
 
     # Workaround: get necessary opt args
-    opt = parse_opt(known=True)
+    opt = train_parse_opt(known=True)
     opt.batch_size = hyp_dict.get("batch_size")
     opt.save_dir = str(increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok or opt.evolve))
     opt.epochs = hyp_dict.get("epochs")
