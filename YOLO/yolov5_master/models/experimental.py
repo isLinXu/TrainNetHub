@@ -1,5 +1,4 @@
-# YOLOv5 experimental modules
-
+# YOLOv5 🚀 by Ultralytics, GPL-3.0 license
 """
 YOLOv5 experimental modules
 实验模块
@@ -8,7 +7,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from YOLO.yolov5_master.models.common import Conv, DWConv
+from YOLO.yolov5_master.models.common import Conv
 from YOLO.yolov5_master.utils.downloads import attempt_download
 
 
@@ -45,34 +44,6 @@ class Sum(nn.Module):
             for i in self.iter:
                 y = y + x[i + 1]
         return y
-
-
-class GhostConv(nn.Module):
-    # Ghost Convolution https://github.com/huawei-noah/ghostnet
-    def __init__(self, c1, c2, k=1, s=1, g=1, act=True):  # ch_in, ch_out, kernel, stride, groups
-        super().__init__()
-        c_ = c2 // 2  # hidden channels
-        self.cv1 = Conv(c1, c_, k, s, None, g, act)
-        self.cv2 = Conv(c_, c_, 5, 1, None, c_, act)
-
-    def forward(self, x):
-        y = self.cv1(x)
-        return torch.cat([y, self.cv2(y)], 1)
-
-
-class GhostBottleneck(nn.Module):
-    # Ghost Bottleneck https://github.com/huawei-noah/ghostnet
-    def __init__(self, c1, c2, k=3, s=1):  # ch_in, ch_out, kernel, stride
-        super().__init__()
-        c_ = c2 // 2
-        self.conv = nn.Sequential(GhostConv(c1, c_, 1, 1),  # pw
-                                  DWConv(c_, c_, k, s, act=False) if s == 2 else nn.Identity(),  # dw
-                                  GhostConv(c_, c2, 1, 1, act=False))  # pw-linear
-        self.shortcut = nn.Sequential(DWConv(c1, c1, k, s, act=False),
-                                      Conv(c1, c2, 1, 1, act=False)) if s == 2 else nn.Identity()
-
-    def forward(self, x):
-        return self.conv(x) + self.shortcut(x)
 
 
 class MixConv2d(nn.Module):
@@ -116,7 +87,7 @@ class Ensemble(nn.ModuleList):
         return y, None  # inference, train output
 
 
-def attempt_load(weights, map_location=None, inplace=True):
+def attempt_load(weights, map_location=None, inplace=True, fuse=True):
     """加载pt文件
     weights可以是权重路径，也可以是一个保存多个权重路径的列表
     """
@@ -126,21 +97,27 @@ def attempt_load(weights, map_location=None, inplace=True):
     # 初始化一个融合模型列表
     model = Ensemble()
     for w in weights if isinstance(weights, list) else [weights]:
-        # 加载权重文件
         ckpt = torch.load(attempt_download(w), map_location=map_location)  # load
-        model.append(ckpt['ema' if ckpt.get('ema') else 'model'].float().fuse().eval())  # FP32 model
+        if fuse:
+            model.append(ckpt['ema' if ckpt.get('ema') else 'model'].float().fuse().eval())  # FP32 model
+        else:
+            model.append(ckpt['ema' if ckpt.get('ema') else 'model'].float().eval())  # without layer fuse
+
 
     # Compatibility updates
     for m in model.modules():
         if type(m) in [nn.Hardswish, nn.LeakyReLU, nn.ReLU, nn.ReLU6, nn.SiLU, Detect, Model]:
             m.inplace = inplace  # pytorch 1.7.0 compatibility
+            if type(m) is Detect:
+                if not isinstance(m.anchor_grid, list):  # new Detect Layer compatibility
+                    delattr(m, 'anchor_grid')
+                    setattr(m, 'anchor_grid', [torch.zeros(1)] * m.nl)
         elif type(m) is Conv:
             m._non_persistent_buffers_set = set()  # pytorch 1.6.0 compatibility
 
     # 如果只有一个模型，则直接返回该模型
     if len(model) == 1:
         return model[-1]  # return model
-    # 否则融合多个模型
     else:
         print(f'Ensemble created with {weights}\n')
         # 更新融合模型的类别名属性, 步长属性

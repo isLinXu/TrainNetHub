@@ -277,7 +277,7 @@ def output_to_target(output):
     return np.array(targets)
 
 
-def plot_images(images, targets, paths=None, fname='images.jpg', names=None, max_size=640, max_subplots=16):
+def plot_images(images, targets, paths=None, fname='images.jpg', names=None, max_size=1920, max_subplots=16):
     """可视化训练/测试数据
     :param images：一个batch的图片
     :param labels：一个batch的标签
@@ -405,7 +405,7 @@ def plot_val_study(file='', dir='', x=None):  # from utils.plots import *; plot_
         ax = plt.subplots(2, 4, figsize=(10, 6), tight_layout=True)[1].ravel()
 
     fig2, ax2 = plt.subplots(1, 1, figsize=(8, 4), tight_layout=True)
-    # for f in [Path(path) / f'study_coco_{x}.txt' for x in ['yolov5s6', 'yolov5m6', 'yolov5l6', 'yolov5x6']]:
+    # for f in [save_dir / f'study_coco_{x}.txt' for x in ['yolov5n6', 'yolov5s6', 'yolov5m6', 'yolov5l6', 'yolov5x6']]:
     for f in sorted(save_dir.glob('study*.txt')):
         y = np.loadtxt(f, dtype=np.float32, usecols=[0, 1, 2, 3, 7, 8, 9], ndmin=2).T
         x = np.arange(y.shape[1]) if x is None else np.array(x)
@@ -425,7 +425,7 @@ def plot_val_study(file='', dir='', x=None):  # from utils.plots import *; plot_
     ax2.grid(alpha=0.2)
     ax2.set_yticks(np.arange(20, 60, 5))
     ax2.set_xlim(0, 57)
-    ax2.set_ylim(30, 55)
+    ax2.set_ylim(25, 55)
     ax2.set_xlabel('GPU Speed (ms/img)')
     ax2.set_ylabel('COCO AP val')
     ax2.legend(loc='lower right')

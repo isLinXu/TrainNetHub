@@ -41,7 +41,7 @@ class Callbacks:
 
         Args:
             hook        The callback hook name to register the action to
-            name        The name of the action
+            name        The name of the action for later reference
             callback    The callback to fire
         """
         assert hook in self._callbacks, f"hook '{hook}' not found in callbacks {self._callbacks}"

@@ -1,4 +1,6 @@
-"""YOLOv5-specific modules
+# YOLOv5 🚀 by Ultralytics, GPL-3.0 license
+"""
+YOLO-specific modules
 
 Usage:
     $ python path/to/models/yolo.py --cfg yolov5s.yaml
@@ -10,12 +12,15 @@ from copy import deepcopy
 from pathlib import Path
 
 FILE = Path(__file__).resolve()
-sys.path.append(FILE.parents[1].as_posix())  # add yolov5/ to path
+ROOT = FILE.parents[1]  # YOLOv5 root directory
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))  # add ROOT to PATH
+# ROOT = ROOT.relative_to(Path.cwd())  # relative
 
 from YOLO.yolov5_master.models.common import *
 from YOLO.yolov5_master.models.experimental import *
 from YOLO.yolov5_master.utils.autoanchor import check_anchor_order
-from YOLO.yolov5_master.utils.general import check_yaml, make_divisible, set_logging
+from YOLO.yolov5_master.utils.general import check_yaml, make_divisible, print_args, set_logging
 from YOLO.yolov5_master.utils.plots import feature_visualization
 from YOLO.yolov5_master.utils.torch_utils import copy_attr, fuse_conv_and_bn, initialize_weights, model_info, scale_img, \
     select_device, time_sync
@@ -45,14 +50,8 @@ class Detect(nn.Module):
         self.na = len(anchors[0]) // 2  # number of anchors
         # 初始化网格坐标
         self.grid = [torch.zeros(1)] * self.nl  # init grid
-
-        # 将读取的anchor转为tensor
-        a = torch.tensor(anchors).float().view(self.nl, -1, 2)
-        # 注册a、anchor_grid为buffer，可保存到网络权重中
-        self.register_buffer('anchors', a)  # shape(nl,na,2)
-        # 将anchor reshape为与网络输出shape一致
-        self.register_buffer('anchor_grid', a.clone().view(self.nl, 1, -1, 1, 1, 2))  # shape(nl,1,na,1,1,2)
-        # 检测头
+        self.anchor_grid = [torch.zeros(1)] * self.nl  # init anchor grid
+        self.register_buffer('anchors', torch.tensor(anchors).float().view(self.nl, -1, 2))  # shape(nl,na,2)
         self.m = nn.ModuleList(nn.Conv2d(x, self.no * self.na, 1) for x in ch)  # output conv
         # 是否直接在预测y上反算坐标并替换
         self.inplace = inplace  # use in-place ops (e.g. slice assignment)
@@ -70,23 +69,30 @@ class Detect(nn.Module):
             if not self.training:  # inference
                 # 如果是前向推理, 创建网格坐标
                 if self.grid[i].shape[2:4] != x[i].shape[2:4] or self.onnx_dynamic:
-                    self.grid[i] = self._make_grid(nx, ny).to(x[i].device)
+                    self.grid[i], self.anchor_grid[i] = self._make_grid(nx, ny, i)
                 # 对所有输出限制范围0~1
                 y = x[i].sigmoid()
                 # 预测框坐标反算，公式参见https://github.com/ultralytics/yolov5/issues/471
                 # for YOLOv5 on AWS Inferentia https://github.com/ultralytics/yolov5/pull/2953
-                xy = (y[..., 0:2] * 2. - 0.5 + self.grid[i]) * self.stride[i]  # xy
-                wh = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i].view(1, self.na, 1, 1, 2)  # wh
-                y = torch.cat((xy, wh, y[..., 4:]), -1)
+                if self.inplace:
+                    y[..., 0:2] = (y[..., 0:2] * 2. - 0.5 + self.grid[i]) * self.stride[i]  # xy
+                    y[..., 2:4] = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i]  # wh
+                else:  # for YOLOv5 on AWS Inferentia https://github.com/ultralytics/yolov5/pull/2953
+                    xy = (y[..., 0:2] * 2. - 0.5 + self.grid[i]) * self.stride[i]  # xy
+                    wh = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i]  # wh
+                    y = torch.cat((xy, wh, y[..., 4:]), -1)
                 z.append(y.view(bs, -1, self.no))
 
         return x if self.training else (torch.cat(z, 1), x)
 
-    @staticmethod
-    def _make_grid(nx=20, ny=20):
+    def _make_grid(self, nx=20, ny=20, i=0):
         """生成特征图网格坐标"""
-        yv, xv = torch.meshgrid([torch.arange(ny), torch.arange(nx)])
-        return torch.stack((xv, yv), 2).view((1, 1, ny, nx, 2)).float()
+        d = self.anchors[i].device
+        yv, xv = torch.meshgrid([torch.arange(ny).to(d), torch.arange(nx).to(d)])
+        grid = torch.stack((xv, yv), 2).expand((1, self.na, ny, nx, 2)).float()
+        anchor_grid = (self.anchors[i].clone() * self.stride[i]) \
+            .view((1, self.na, 1, 1, 2)).expand((1, self.na, ny, nx, 2)).float()
+        return grid, anchor_grid
 
 
 class Model(nn.Module):
@@ -99,7 +105,7 @@ class Model(nn.Module):
         else:  # is *.yaml
             import yaml  # for torch hub
             self.yaml_file = Path(cfg).name
-            with open(cfg) as f:
+            with open(cfg, errors='ignore') as f:
                 self.yaml = yaml.safe_load(f)  # model dict
 
         # Define model
@@ -148,10 +154,10 @@ class Model(nn.Module):
     def forward(self, x, augment=False, profile=False, visualize=False):
         """前向推理"""
         if augment:
-            return self.forward_augment(x)  # augmented inference, None
-        return self.forward_once(x, profile, visualize)  # single-scale inference, train
+            return self._forward_augment(x)  # augmented inference, None
+        return self._forward_once(x, profile, visualize)  # single-scale inference, train
 
-    def forward_augment(self, x):
+    def _forward_augment(self, x):
         """Test Time Augmentation
         对图片以固定的尺度进行缩放，翻转再送入网络模型推理
         """
@@ -161,41 +167,27 @@ class Model(nn.Module):
         y = []  # outputs
         for si, fi in zip(s, f):
             xi = scale_img(x.flip(fi) if fi else x, si, gs=int(self.stride.max()))
-            yi = self.forward_once(xi)[0]  # forward
+            yi = self._forward_once(xi)[0]  # forward
             # cv2.imwrite(f'img_{si}.jpg', 255 * xi[0].cpu().numpy().transpose((1, 2, 0))[:, :, ::-1])  # save
             # 将数据增强的图片预测 反算为基于原图的预测
             yi = self._descale_pred(yi, fi, si, img_size)
             y.append(yi)
         return torch.cat(y, 1), None  # augmented inference, train
 
-    def forward_once(self, x, profile=False, visualize=False):
+    def _forward_once(self, x, profile=False, visualize=False):
         """正常前向推理"""
         y, dt = [], []  # outputs
         for m in self.model:
             if m.f != -1:  # if not from previous layer
                 x = y[m.f] if isinstance(m.f, int) else [x if j == -1 else y[j] for j in m.f]  # from earlier layers
-
             if profile:
                 # 显示模型的信息，每一层网络信息，推理速度，参数量GFLOPs等
-                c = isinstance(m, Detect)  # copy input as inplace fix
-                o = thop.profile(m, inputs=(x.copy() if c else x,), verbose=False)[0] / 1E9 * 2 if thop else 0  # FLOPs
-                t = time_sync()
-                for _ in range(10):
-                    m(x.copy() if c else x)
-                dt.append((time_sync() - t) * 100)
-                if m == self.model[0]:
-                    LOGGER.info(f"{'time (ms)':>10s} {'GFLOPs':>10s} {'params':>10s}  {'module'}")
-                LOGGER.info(f'{dt[-1]:10.2f} {o:10.2f} {m.np:10.0f}  {m.type}')
-
+                self._profile_one_layer(m, x, dt)
             x = m(x)  # run
             y.append(x if m.i in self.save else None)  # save output
 
             if visualize:
-                # 可视化每一层网络的预测
                 feature_visualization(x, m.type, m.i, save_dir=visualize)
-
-        if profile:
-            LOGGER.info('%.1fms total' % sum(dt))
         return x
 
     def _descale_pred(self, p, flips, scale, img_size):
@@ -215,6 +207,30 @@ class Model(nn.Module):
                 x = img_size[1] - x  # de-flip lr
             p = torch.cat((x, y, wh, p[..., 4:]), -1)
         return p
+
+    def _clip_augmented(self, y):
+        # Clip YOLOv5 augmented inference tails
+        nl = self.model[-1].nl  # number of detection layers (P3-P5)
+        g = sum(4 ** x for x in range(nl))  # grid points
+        e = 1  # exclude layer count
+        i = (y[0].shape[1] // g) * sum(4 ** x for x in range(e))  # indices
+        y[0] = y[0][:, :-i]  # large
+        i = (y[-1].shape[1] // g) * sum(4 ** (nl - 1 - x) for x in range(e))  # indices
+        y[-1] = y[-1][:, i:]  # small
+        return y
+
+    def _profile_one_layer(self, m, x, dt):
+        c = isinstance(m, Detect)  # is final layer, copy input as inplace fix
+        o = thop.profile(m, inputs=(x.copy() if c else x,), verbose=False)[0] / 1E9 * 2 if thop else 0  # FLOPs
+        t = time_sync()
+        for _ in range(10):
+            m(x.copy() if c else x)
+        dt.append((time_sync() - t) * 100)
+        if m == self.model[0]:
+            LOGGER.info(f"{'time (ms)':>10s} {'GFLOPs':>10s} {'params':>10s}  {'module'}")
+        LOGGER.info(f'{dt[-1]:10.2f} {o:10.2f} {m.np:10.0f}  {m.type}')
+        if c:
+            LOGGER.info(f"{sum(dt):10.2f} {'-':>10s} {'-':>10s}  Total")
 
     def _initialize_biases(self, cf=None):  # initialize biases into Detect(), cf is class frequency
         """初始化检测头网络的biases，使网络在训练初期更稳定"""
@@ -250,7 +266,6 @@ class Model(nn.Module):
         self.info()
         return self
 
-
     def autoshape(self):  # add AutoShape module
         """封装model为前处理推理后处理集成模块"""
         LOGGER.info('Adding AutoShape... ')
@@ -261,6 +276,17 @@ class Model(nn.Module):
     def info(self, verbose=False, img_size=640):  # print model information
         """显示模型的信息，网络层信息，参数量，梯度量等"""
         model_info(self, verbose, img_size)
+
+    def _apply(self, fn):
+        # Apply to(), cpu(), cuda(), half() to model tensors that are not parameters or registered buffers
+        self = super()._apply(fn)
+        m = self.model[-1]  # Detect()
+        if isinstance(m, Detect):
+            m.stride = fn(m.stride)
+            m.grid = list(map(fn, m.grid))
+            if isinstance(m.anchor_grid, list):
+                m.anchor_grid = list(map(fn, m.anchor_grid))
+        return self
 
 
 def parse_model(d, ch):  # model_dict, input_channels(3)
@@ -289,7 +315,7 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
         for j, a in enumerate(args):
             try:
                 args[j] = eval(a) if isinstance(a, str) else a  # eval strings
-            except:
+            except NameError:
                 pass
 
         # 通过网络深度系数，计算当前的堆叠次数
@@ -348,6 +374,7 @@ if __name__ == '__main__':
     parser.add_argument('--profile', action='store_true', help='profile model speed')
     opt = parser.parse_args()
     opt.cfg = check_yaml(opt.cfg)  # check YAML
+    print_args(FILE.stem, opt)
     set_logging()
     device = select_device(opt.device)
 
@@ -361,7 +388,7 @@ if __name__ == '__main__':
         y = model(img, profile=True)
 
     # Tensorboard (not working https://github.com/ultralytics/yolov5/issues/2898)
-    from torch.utils.tensorboard import SummaryWriter
-    tb_writer = SummaryWriter('.')
-    LOGGER.info("Run 'tensorboard --logdir=models' to view tensorboard at http://localhost:6006/")
-    tb_writer.add_graph(torch.jit.trace(model, img, strict=False), [])  # add model graph
+    # from torch.utils.tensorboard import SummaryWriter
+    # tb_writer = SummaryWriter('.')
+    # LOGGER.info("Run 'tensorboard --logdir=models' to view tensorboard at http://localhost:6006/")
+    # tb_writer.add_graph(torch.jit.trace(model, img, strict=False), [])  # add model graph
