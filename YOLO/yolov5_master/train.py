@@ -27,7 +27,10 @@ from torch.optim import Adam, SGD, lr_scheduler
 from tqdm import tqdm
 
 FILE = Path(__file__).resolve()
-sys.path.append(FILE.parents[0].as_posix())  # add yolov5/ to path
+ROOT = FILE.parents[0]  # YOLOv5 root directory
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))  # add ROOT to PATH
+ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
 import YOLO.yolov5_master.val as val # for end-of-epoch mAP
 from YOLO.yolov5_master.models.experimental import attempt_load
@@ -36,7 +39,7 @@ from YOLO.yolov5_master.utils.autoanchor import check_anchors
 from YOLO.yolov5_master.utils.datasets import create_dataloader
 from YOLO.yolov5_master.utils.general import labels_to_class_weights, increment_path, labels_to_image_weights, init_seeds, \
     strip_optimizer, get_latest_run, check_dataset, check_git_status, check_img_size, check_requirements, \
-    check_file, check_yaml, check_suffix, print_mutation, set_logging, one_cycle, colorstr, methods
+    check_file, check_yaml, check_suffix, print_args, print_mutation, set_logging, one_cycle, colorstr, methods
 from YOLO.yolov5_master.utils.downloads import attempt_download
 from YOLO.yolov5_master.utils.loss import ComputeLoss
 from YOLO.yolov5_master.utils.plots import plot_labels, plot_evolve
@@ -83,7 +86,7 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
 
     # 设置保存权重的路径
     w = save_dir / 'weights'  # weights dir
-    w.mkdir(parents=True, exist_ok=True)  # make dir
+    (w.parent if evolve else w).mkdir(parents=True, exist_ok=True)  # make dir
     last, best = w / 'last.pt', w / 'best.pt'
 
     '''
@@ -91,7 +94,7 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
     '''
     # Hyperparameters
     if isinstance(hyp, str):
-        with open(hyp) as f:
+        with open(hyp, errors='ignore') as f:
             hyp = yaml.safe_load(f)  # load hyps dict
     # 显示超参数
     LOGGER.info(colorstr('hyperparameters: ') + ', '.join(f'{k}={v}' for k, v in hyp.items()))
@@ -110,7 +113,6 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
     加载相关日志功能:如tensorboard,logger,wandb
     '''
     # Loggers
-    # 设置wandb和tb两种日志, wandb和tensorboard都是模型信息，指标可视化工具
     if RANK in [-1, 0]:
         loggers = Loggers(save_dir, weights, opt, hyp, LOGGER)  # loggers instance
         # W&B 初始化
@@ -135,7 +137,7 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
     init_seeds(1 + RANK)
 
     # 加载数据配置信息
-    with torch_distributed_zero_first(RANK):
+    with torch_distributed_zero_first(LOCAL_RANK):
         data_dict = data_dict or check_dataset(data)  # check if None
     train_path, val_path = data_dict['train'], data_dict['val']
     nc = 1 if single_cls else int(data_dict['nc'])  # number of classes
@@ -147,7 +149,7 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
     check_suffix(weights, '.pt')  # check weights
     pretrained = weights.endswith('.pt')
     if pretrained:
-        with torch_distributed_zero_first(RANK):
+        with torch_distributed_zero_first(LOCAL_RANK):
             weights = attempt_download(weights)  # download if not found locally
         ckpt = torch.load(weights, map_location=device)  # load checkpoint
         model = Model(cfg or ckpt['model'].yaml, ch=3, nc=nc, anchors=hyp.get('anchors')).to(device)  # create
@@ -295,7 +297,7 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
     # Trainloader
     # 创建训练集对象加载器dataloader
     train_loader, dataset = create_dataloader(train_path, imgsz, batch_size // WORLD_SIZE, gs, single_cls,
-                                              hyp=hyp, augment=True, cache=opt.cache, rect=opt.rect, rank=RANK,
+                                              hyp=hyp, augment=True, cache=opt.cache, rect=opt.rect, rank=LOCAL_RANK,
                                               workers=workers, image_weights=opt.image_weights, quad=opt.quad,
                                               prefix=colorstr('train: '))
     mlc = int(np.concatenate(dataset.labels, 0)[:, 0].max())  # max label class
@@ -325,6 +327,7 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
             标签的长h宽w与anchor的长h_a宽w_a的比值, 即h/h_a, w/w_a都要在(1/hyp['anchor_t'], hyp['anchor_t'])是可以接受的
             如果标签框满足上面条件的数量小于总数的98%，则根据k-mean算法聚类新的锚点anchor
             """
+
             # Anchors
             if not opt.noautoanchor:
                 check_anchors(dataset, model=model, thr=hyp['anchor_t'], imgsz=imgsz)
@@ -406,7 +409,7 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
             iw = labels_to_image_weights(dataset.labels, nc=nc, class_weights=cw)  # image weights
             dataset.indices = random.choices(range(dataset.n), weights=iw, k=dataset.n)  # rand weighted idx
 
-        # Update mosaic border
+        # Update mosaic border (optional)
         # b = int(random.uniform(0.25 * imgsz, 0.75 * imgsz + gs) // gs * gs)
         # dataset.mosaic_border = [b - imgsz, -b]  # height, width borders
         # 初始化训练时打印的平均损失信息
@@ -509,7 +512,7 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
             callbacks.run('on_train_epoch_end', epoch=epoch)
             ema.update_attr(model, include=['yaml', 'nc', 'hyp', 'names', 'stride', 'class_weights'])
             # 判断该epoch是否为最后一轮
-            final_epoch = epoch + 1 == epochs
+            final_epoch = (epoch + 1 == epochs) or stopper.possible_stop
             # 对测试集进行测试，计算mAP等指标
             # 测试时使用的是EMA模型
             if not noval or final_epoch:  # Calculate mAP
@@ -520,9 +523,7 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
                                            single_cls=single_cls,
                                            dataloader=val_loader,
                                            save_dir=save_dir,
-                                           save_json=is_coco and final_epoch,
-                                           verbose=nc < 50 and final_epoch,
-                                           plots=plots and final_epoch,
+                                           plots=False,
                                            callbacks=callbacks,
                                            compute_loss=compute_loss)
 
@@ -551,6 +552,8 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
                 torch.save(ckpt, last)
                 if best_fitness == fi:
                     torch.save(ckpt, best)
+                if (epoch > 0) and (opt.save_period > 0) and (epoch % opt.save_period == 0):
+                    torch.save(ckpt, w / f'epoch{epoch}.pt')
                 del ckpt
                 callbacks.run('on_model_save', last, epoch, final_epoch, best_fitness, fi)
 
@@ -572,29 +575,25 @@ def train(hyp,  # path/to/hyp.yaml or hyp dictionary
     # end training -----------------------------------------------------------------------------------------------------
     if RANK in [-1, 0]:
         LOGGER.info(f'\n{epoch - start_epoch + 1} epochs completed in {(time.time() - t0) / 3600:.3f} hours.')
-        if not evolve:
-            # 如果是coco数据集则单独再测试一次
-            if is_coco:  # COCO dataset
-                for m in [last, best] if best.exists() else [last]:  # speed, mAP tests
+        for f in last, best:
+            if f.exists():
+                strip_optimizer(f)  # strip optimizers
+                if f is best:
+                    LOGGER.info(f'\nValidating {f}...')
                     results, _, _ = val.run(data_dict,
                                             batch_size=batch_size // WORLD_SIZE * 2,
                                             imgsz=imgsz,
-                                            model=attempt_load(m, device).half(),
-                                            iou_thres=0.7,  # NMS IoU threshold for best pycocotools results
+                                            model=attempt_load(f, device).half(),
+                                            iou_thres=0.65 if is_coco else 0.60,  # best pycocotools results at 0.65
                                             single_cls=single_cls,
                                             dataloader=val_loader,
                                             save_dir=save_dir,
-                                            save_json=True,
-                                            plots=False)
-            # Strip optimizers
-            """
-            模型训练完后，strip_optimizer函数将除了模型model或者ema之外的所有东西去除；
-            并且对模型进行model.half(), 将Float32的模型->Float16，
-            可以减少模型大小，提高inference速度
-            """
-            for f in last, best:
-                if f.exists():
-                    strip_optimizer(f)  # strip optimizers
+                                            save_json=is_coco,
+                                            verbose=True,
+                                            plots=True,
+                                            callbacks=callbacks,
+                                            compute_loss=compute_loss)  # val best model with plots
+
         callbacks.run('on_train_end', last, best, plots, epoch)
         LOGGER.info(f"Results saved to {colorstr('bold', save_dir)}")
 
@@ -714,9 +713,10 @@ def train_main(opt, callbacks=Callbacks()):
     # 初始化logging
     set_logging(RANK)
     if RANK in [-1, 0]:
-        print(colorstr('train: ') + ', '.join(f'{k}={v}' for k, v in vars(opt).items()))
+        print_args(FILE.stem, opt)
         # check_git_status() # 检查官方git仓库更新状态
-        check_requirements(requirements=FILE.parent / 'support/requirements.txt', exclude=['thop'])
+        check_git_status()
+        check_requirements(exclude=['thop'])
 
     # Resume
     # 是否接着打断上次的结果接着训练
@@ -727,30 +727,25 @@ def train_main(opt, callbacks=Callbacks()):
         ckpt = opt.resume if isinstance(opt.resume, str) else get_latest_run()  # specified or most recent path
         # os.path.isfile() 用于判断某一对象(需提供绝对路径)是否为文件
         assert os.path.isfile(ckpt), 'ERROR: --resume checkpoint does not exist'
-        # opt参数也全部替换
-        # open()函数是打开文件，但文件属于I/O流，需要使用后关闭，每次这样麻烦。
-        # 使用with之后可以自动帮我们调用close()方法。此时不必调用f.close()方法。
-        # parent获取path的上级路径，parents获取path的所有上级路径。此处获取的是 -->  \runs\train\exp\opt.yaml
-        with open(Path(ckpt).parent.parent / 'opt.yaml') as f:
-            # 超参数替换
+        with open(Path(ckpt).parent.parent / 'opt.yaml', errors='ignore') as f:
             opt = argparse.Namespace(**yaml.safe_load(f))  # replace
         # opt.cfg设置为'' 对应着train函数里面的操作(加载权重时是否加载权重里的anchor)
-        opt.cfg, opt.weights, opt.resume = '', ckpt, True  # reinstate # 恢复训练
-        LOGGER.info(f'Resuming training from {ckpt}')  # 打印从ckpt恢复训练的日志
+        opt.cfg, opt.weights, opt.resume = '', ckpt, True  # reinstate
+        LOGGER.info(f'Resuming training from {ckpt}')
     else:
-        opt.data, opt.cfg, opt.hyp = check_file(opt.data), check_yaml(opt.cfg), check_yaml(opt.hyp)  # check YAMLs
+        opt.data, opt.cfg, opt.hyp, opt.weights, opt.project = \
+            check_file(opt.data), check_yaml(opt.cfg), check_yaml(opt.hyp), str(opt.weights), str(opt.project)  # checks
         assert len(opt.cfg) or len(opt.weights), 'either --cfg or --weights must be specified'
         # 如果要进行超参数进化，重建保存路径
         if opt.evolve:
-            opt.project = 'runs/evolve'
-            opt.exist_ok = opt.resume
+            opt.project = str(ROOT / 'runs/evolve')
+            opt.exist_ok, opt.resume = opt.resume, False  # pass resume to exist_ok and disable resume
         opt.save_dir = str(increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok))
 
     # DDP mode  -->  支持多机多卡、分布式训练
     # 选择设备
     device = select_device(opt.device, batch_size=opt.batch_size)
     if LOCAL_RANK != -1:
-        from datetime import timedelta
         assert torch.cuda.device_count() > LOCAL_RANK, 'insufficient CUDA devices for DDP command'
         assert opt.batch_size % WORLD_SIZE == 0, '--batch-size must be multiple of CUDA device count'
         assert not opt.image_weights, '--image-weights argument is not compatible with DDP training'
@@ -767,7 +762,8 @@ def train_main(opt, callbacks=Callbacks()):
     if not opt.evolve:
         train(opt.hyp, opt, device, callbacks)
         if WORLD_SIZE > 1 and RANK == 0:
-            _ = [print('Destroying process group... ', end=''), dist.destroy_process_group(), print('Done.')]
+            LOGGER.info('Destroying process group... ')
+            dist.destroy_process_group()
 
     # Evolve hyperparameters (optional)
     # 进化超参数
@@ -847,7 +843,7 @@ def train_main(opt, callbacks=Callbacks()):
                 'copy_paste': (1, 0.0, 1.0)}  # segment copy-paste (probability)
 
         # 加载默认超参数
-        with open(opt.hyp) as f:
+        with open(opt.hyp, errors='ignore') as f:
             hyp = yaml.safe_load(f)  # load hyps dict
             # 如果超参数文件中没有'anchors'，则设为3
             if 'anchors' not in hyp:  # anchors commented in hyp.yaml
