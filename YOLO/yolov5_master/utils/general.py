@@ -28,9 +28,8 @@ import torch
 import torchvision
 import yaml
 
-from .downloads import gsutil_getsize
-from .metrics import box_iou, fitness
-from .torch_utils import init_torch_seeds
+from YOLO.yolov5_master.utils.downloads import gsutil_getsize
+from YOLO.yolov5_master.utils.metrics import box_iou, fitness
 
 # Settings
 # 设置torch，np, pandas的显示限制
@@ -256,7 +255,7 @@ def check_version(current='0.0.0', minimum='0.0.0', name='version ', pinned=Fals
 
 
 @try_except
-def check_requirements(requirements=ROOT / 'requirements.txt', exclude=(), install=True):
+def check_requirements(requirements=ROOT / 'support/requirements.txt', exclude=(), install=True):
     """检查当前环境是够满足要求
     exclude:不需要检查的环境包"""
     # Check installed dependencies meet requirements (pass *.txt file or list of packages)
