@@ -146,8 +146,6 @@ def create_tree(image_name, h, w, imgdir):
     # 创建一级分支path
     path = ET.SubElement(annotation, 'path')
 
-    path.text = getcwd() + '\{}\{}'.format(imgdir, image_name)  # 用于返回当前工作目录
-
     path.text = '{}/{}'.format(imgdir, image_name)  # 用于返回当前工作目录
 
     # 创建一级分支source
