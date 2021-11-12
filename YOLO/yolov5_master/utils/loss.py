@@ -5,7 +5,7 @@ Loss functions
 import torch
 import torch.nn as nn
 
-from YOLO.yolov5_master.utils.metrics import bbox_iou
+from YOLO.yolov5_master.utils.metrics import bbox_iou, bbox_alpha_iou
 from YOLO.yolov5_master.utils.torch_utils import is_parallel
 
 
@@ -161,7 +161,9 @@ class ComputeLoss:
                 pwh = (ps[:, 2:4].sigmoid() * 2) ** 2 * anchors[i]
                 pbox = torch.cat((pxy, pwh), 1)  # predicted box
                 # 计算边框损失，注意这个CIoU=True，计算的是ciou损失
-                iou = bbox_iou(pbox.T, tbox[i], x1y1x2y2=False, CIoU=True)  # iou(prediction, target)
+                # iou = bbox_iou(pbox.T, tbox[i], x1y1x2y2=False, CIoU=True)  # iou(prediction, target) src
+                iou = bbox_alpha_iou(pbox.T, tbox[i], x1y1x2y2=False, alpha=3, CIoU=True)  # iou(prediction, target) alpha_iou
+
                 lbox += (1.0 - iou).mean()  # iou loss
 
                 # Objectness
