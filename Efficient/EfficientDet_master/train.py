@@ -1,7 +1,14 @@
+
+# -*- coding:utf-8  -*-
+'''
+@author: linxu
+@contact: 17746071609@163.com
+@time: 2021-11-7 上午08:26
+@desc: 执行主函数
 # original author: signatrix
 # adapted from https://github.com/signatrix/efficientdet/blob/master/train.py
 # modified by Zylo117
-
+'''
 import argparse
 import datetime
 import os
@@ -16,11 +23,12 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 from tqdm.autonotebook import tqdm
 
-from backbone import EfficientDetBackbone
-from efficientdet.dataset import CocoDataset, Resizer, Normalizer, Augmenter, collater
-from efficientdet.loss import FocalLoss
-from utils.sync_batchnorm import patch_replication_callback
-from utils.utils import replace_w_sync_bn, CustomDataParallel, get_last_weights, init_weights, boolean_string
+from Efficient.EfficientDet_master.backbone import EfficientDetBackbone
+from Efficient.EfficientDet_master.efficientdet.dataset import CocoDataset, Resizer, Normalizer, Augmenter, collater
+from Efficient.EfficientDet_master.efficientdet.loss import FocalLoss
+from Efficient.EfficientDet_master.utils.sync_batchnorm import patch_replication_callback
+from Efficient.EfficientDet_master.utils.utils import replace_w_sync_bn, CustomDataParallel, get_last_weights, \
+    init_weights, boolean_string
 
 
 class Params:
@@ -31,7 +39,7 @@ class Params:
         return self.params.get(item, None)
 
 
-def get_args():
+def get_train_args():
     parser = argparse.ArgumentParser('Yet Another EfficientDet Pytorch: SOTA object detection network - Zylo117')
     parser.add_argument('-p', '--project', type=str, default='coco', help='project file that contains parameters')
     parser.add_argument('-c', '--compound_coef', type=int, default=0, help='coefficients of efficientdet')
@@ -55,7 +63,7 @@ def get_args():
     parser.add_argument('--log_path', type=str, default='logs/')
     parser.add_argument('-w', '--load_weights', type=str, default=None,
                         help='whether to load weights from a checkpoint, set None to initialize, set \'last\' to load last checkpoint')
-    parser.add_argument('--saved_path', type=str, default='logs/')
+    parser.add_argument('--saved_path', type=str, default='runs/')
     parser.add_argument('--debug', type=boolean_string, default=False,
                         help='whether visualize the predicted boxes of training, '
                              'the output images will be in test/')
@@ -81,6 +89,9 @@ class ModelWithLoss(nn.Module):
         return cls_loss, reg_loss
 
 
+opt = get_train_args()
+
+
 def train(opt):
     params = Params(f'projects/{opt.project}.yml')
 
@@ -96,6 +107,7 @@ def train(opt):
     opt.log_path = opt.log_path + f'/{params.project_name}/tensorboard/'
     os.makedirs(opt.log_path, exist_ok=True)
     os.makedirs(opt.saved_path, exist_ok=True)
+
 
     training_params = {'batch_size': opt.batch_size,
                        'shuffle': True,
@@ -322,5 +334,5 @@ def save_checkpoint(model, name):
 
 
 if __name__ == '__main__':
-    opt = get_args()
+    opt = get_train_args()
     train(opt)
