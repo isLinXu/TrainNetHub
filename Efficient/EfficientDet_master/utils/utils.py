@@ -14,7 +14,7 @@ from torch import nn
 from torch.nn.init import _calculate_fan_in_and_fan_out, _no_grad_normal_
 from torchvision.ops.boxes import batched_nms
 
-from Efficient.EfficientDet_master.utils.sync_batchnorm import SynchronizedBatchNorm2d
+from utils.sync_batchnorm import SynchronizedBatchNorm2d
 
 
 def invert_affine(metas: Union[float, list, tuple], preds):

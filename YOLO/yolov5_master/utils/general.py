@@ -259,7 +259,7 @@ def check_requirements(requirements=ROOT / 'support/requirements.txt', exclude=(
     """检查当前环境是够满足要求
     exclude:不需要检查的环境包"""
     # Check installed dependencies meet requirements (pass *.txt file or list of packages)
-    # 将requirements显示这是为红色
+    # 将requirements显示,这是为红色
     global file
     prefix = colorstr('red', 'bold', 'requirements:')
     # 检查python环境是否满足要求
