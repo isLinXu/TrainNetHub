@@ -137,7 +137,7 @@ if __name__ == '__main__':
     # 设置图片路径
     imgdir = '/home/hxzh02/文档/coco128/images/train2017/'
     # imgdir = '/home/hxzh02/下载/archive (1)/Dataset/train/cars'
-    imgdir = '/media/hxzh02/SB@home/hxzh/Dataset/无人机杆塔航拍数据集/杆塔主体/VOCdevkit_tower_part/JPEGImages'
+    # imgdir = '/media/hxzh02/SB@home/hxzh/Dataset/无人机杆塔航拍数据集/杆塔主体/VOCdevkit_tower_part/JPEGImages'
     # imgdir = '/media/hxzh02/SB@home/hxzh/Dataset/无人机杆塔航拍数据集/杆塔主体/Image/383.jpg'
     # 输出xml标注文件
     # outdir = '/home/hxzh02/文档/coco128/annations'
@@ -189,18 +189,6 @@ if __name__ == '__main__':
                     #     label_id = coordinate[4]
                         # print(label_id)
                         # print(names[label_id])
-
-        # image = cv2.imread(os.path.join(imgdir, imgdir))
-        # # 进行检测并将预测信息存入list
-        # conf_threshold = 0.4
-        # coordinates_list = detector(image, model, device, conf_threshold, half)
-        # # print(coordinates_list)
-        # if coordinates_list:
-        #     print(imgdir)
-        #     for coordinate in coordinates_list:
-        #         label_id = coordinate[4]
-        #         print(label_id)
-        #         # print(names[label_id])
 
     else:
         print('imgdir not exist!')
