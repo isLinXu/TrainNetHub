@@ -2,9 +2,5 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/Efficient/EfficientDet_master" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/Efficient/Yet-Another-EfficientDet-Pytorch" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/YOLO/yolov2_master" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/YOLO/yolov5_master/data/datasets_smoke" vcs="Git" />
   </component>
 </project>
