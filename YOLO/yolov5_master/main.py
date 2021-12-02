@@ -42,9 +42,9 @@ def train_(object_name):
     Usage-IDE使用方式：直接在下面对应位置进行修改
     """
     # 数据集配置文件
-    t_opt.data = rpath + '/data/voc_tower.yaml'
+    t_opt.data = rpath + '/data/voc_firesmoke.yaml'
     # 模型配置文件
-    t_opt.cfg = rpath  + '/models/yolov5s_tower.yaml'
+    t_opt.cfg = rpath  + '/models/yolov5s_firesmoke.yaml'
     # 预训练权重
     # weights/yolov5l.pt,yolov5l6.pt,yolov5m.pt,yolov5m6.pt,yolov5s6.pt,yolov5x.pt,yolov5x6.pt
     t_opt.weights = rpath + '/weights/yolov5s.pt'
@@ -71,9 +71,13 @@ def detect_(object_name):
     """
     # 图像/图像集合/视频的源路径,内部自动文件类型进行判断
     # d_opt.source = rpath +'/data/images/bus.jpg'
-    # d_opt.source = '/home/hxzh02/视频/DJI_VIDEO/'
-    d_opt.source = '/home/hxzh02/MyGithub/TrainNetHub/YOLO/yolov5_master/data/VOCdevkit_tower_part/VOC2007/JPEGImages'
+    # d_opt.source = '/media/hxzh02/SB@home/hxzh/Dataset/11-5电塔照片视频/照片/'
+    # d_opt.source = '/media/hxzh02/SB@home/hxzh/Dataset/无人机相关数据集合集/3-输电线路异物数据集（VOC）/foreignbody_dataset_part1/images/val/'
+    # d_opt.source = '/home/hxzh02/MyGithub/TrainNetHub/YOLO/yolov5_master/data/VOCdevkit_tower_part/VOC2007/JPEGImages'
     # d_opt.source = '/home/hxzh02/MyGithub/TrainNetHub/YOLO/yolov5_master/data/datasets_smoke/VOC2007/JPEGImages'
+    # d_opt.source = '/media/hxzh02/SB@home/hxzh/Dataset/无人机相关数据集合集/7-输电线路绝缘子数据集VOC/dataset_insulator/VOC2007/JPEGImages/'
+    # d_opt.source = '/media/hxzh02/SB@home/hxzh/Dataset/无人机相关数据集合集/5-安全帽数据集5000张/dataset_safetyHat/images/val/'
+    d_opt.source = '/media/hxzh02/SB@home/hxzh/Dataset/温州试点拍摄/DJI_VIDEO/可见光'
     # 设置进行预测推理使用的权重模型文件
     d_opt.weights = rpath + '/runs/train/' + object_name + '/weights/best.pt'
     # d_opt.weights = '/home/hxzh02/MyGithub/TrainNetHub/YOLO/yolov5_master/runs/train/yolov5s_tower4/weights/best.pt'
@@ -82,18 +86,22 @@ def detect_(object_name):
     # 置信度设置
     d_opt.conf_thres = 0.5
     # 边界框线条粗细
-    d_opt.line_thickness = 10
+    d_opt.line_thickness = 4
     cv2.waitKey()
     """开始预测推理"""
     detect_main(d_opt)
 
 if __name__ == '__main__':
     # 设置训练任务/生成模型名称
-    object_name = 'coco128_yolov5s'
-    # object_name = 'yolov5s_tower_DJI_1'
+    # object_name = 'coco128_yolov5s'
+    # object_name = 'yolov5s_foreignbody'
     # object_name = 'yolov5s_smoke'
+    object_name = 'yolov5s_insulator'
+    # object_name = 'yolov5_helmet'
+    # object_name = 'yolov5_firesmoke'
+
     # 模型训练
-    train_(object_name)
+    # train_(object_name)
 
     # 模型预测
-    # detect_(object_name)
+    detect_(object_name)
