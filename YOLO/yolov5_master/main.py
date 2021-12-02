@@ -42,9 +42,9 @@ def train_(object_name):
     Usage-IDE使用方式：直接在下面对应位置进行修改
     """
     # 数据集配置文件
-    t_opt.data = rpath + '/data/voc_firesmoke.yaml'
+    t_opt.data = rpath + '/data/voc_plane_all.yaml'
     # 模型配置文件
-    t_opt.cfg = rpath  + '/models/yolov5s_firesmoke.yaml'
+    t_opt.cfg = rpath  + '/models/yolov5s_plane_all.yaml'
     # 预训练权重
     # weights/yolov5l.pt,yolov5l6.pt,yolov5m.pt,yolov5m6.pt,yolov5s6.pt,yolov5x.pt,yolov5x6.pt
     t_opt.weights = rpath + '/weights/yolov5s.pt'
@@ -77,6 +77,7 @@ def detect_(object_name):
     # d_opt.source = '/home/hxzh02/MyGithub/TrainNetHub/YOLO/yolov5_master/data/datasets_smoke/VOC2007/JPEGImages'
     # d_opt.source = '/media/hxzh02/SB@home/hxzh/Dataset/无人机相关数据集合集/7-输电线路绝缘子数据集VOC/dataset_insulator/VOC2007/JPEGImages/'
     # d_opt.source = '/media/hxzh02/SB@home/hxzh/Dataset/无人机相关数据集合集/5-安全帽数据集5000张/dataset_safetyHat/images/val/'
+
     d_opt.source = '/media/hxzh02/SB@home/hxzh/Dataset/温州试点拍摄/DJI_VIDEO/可见光'
     # 设置进行预测推理使用的权重模型文件
     d_opt.weights = rpath + '/runs/train/' + object_name + '/weights/best.pt'
@@ -94,14 +95,16 @@ def detect_(object_name):
 if __name__ == '__main__':
     # 设置训练任务/生成模型名称
     # object_name = 'coco128_yolov5s'
+    # object_name = 'yolov5s_tower
     # object_name = 'yolov5s_foreignbody'
     # object_name = 'yolov5s_smoke'
-    object_name = 'yolov5s_insulator'
+    # object_name = 'yolov5s_insulator'
     # object_name = 'yolov5_helmet'
     # object_name = 'yolov5_firesmoke'
+    object_name = 'yolov5_plane_all'
 
     # 模型训练
-    # train_(object_name)
+    train_(object_name)
 
     # 模型预测
-    detect_(object_name)
+    # detect_(object_name)

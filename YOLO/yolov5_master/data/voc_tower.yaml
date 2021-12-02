@@ -3,8 +3,8 @@
 # train and val data as 1) directory: path/images/, 2) file: path/images.txt, or 
 #3) 
 list: [path1/images/, path2/images/]
-train: ./data/VOCdevkit_tower_part/images/train/   
-val: ./data/VOCdevkit_tower_part/images/val/  
+train: /media/hxzh02/SB@home/hxzh/Dataset/Plane_detect_datasets/VOCdevkit_tower_part/images/train/
+val: /media/hxzh02/SB@home/hxzh/Dataset/Plane_detect_datasets/VOCdevkit_tower_part/images/val/
 # number of classes
 nc: 4
 # class names
