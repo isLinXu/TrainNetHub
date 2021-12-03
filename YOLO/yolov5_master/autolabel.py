@@ -21,6 +21,13 @@ from YOLO.yolov5_master.utils.plots import plot_one_box, colors, plot_one_box_ci
 from YOLO.yolov5_master.utils.torch_utils import load_classifier
 
 
+def mk(path):
+    if not os.path.exists(path):
+        os.makedirs(path)
+        print("make dirs in %s" % (path))
+    else:
+        print("There are %d files in %s" % (len(os.listdir(path)), path))
+
 def detector(frame, model, device, conf_threshold=0.4,half=True):
     '''
     检测函数主体
@@ -71,6 +78,8 @@ def detector(frame, model, device, conf_threshold=0.4,half=True):
                     plot_one_box(xyxy, frame, label=label, color=colors(c, True), line_thickness=line_thickness)
                     cv2.imshow('frame',frame)
                     cv2.waitKey(0)
+                    # cv2.imshow('frame',frame)
+                    # cv2.waitKey(0)
 
                     info_list.append(info)
                 return info_list
@@ -137,7 +146,7 @@ def create_tree(image_name, h, w, imgdir):
     # 创建一级分支path
     path = ET.SubElement(annotation, 'path')
 
-    path.text = getcwd() + '\{}\{}'.format(imgdir, image_name)  # 用于返回当前工作目录
+    path.text = '{}/{}'.format(imgdir, image_name)  # 用于返回当前工作目录
 
     # 创建一级分支source
     source = ET.SubElement(annotation, 'source')
@@ -253,11 +262,24 @@ if __name__ == '__main__':
                     tree = ET.ElementTree(annotation)
                     root = tree.getroot()
                     pretty_xml(root, '\t', '\n')
-                    # tree.write('./{}/{}.xml'.format(outdir, image_name.strip('.jpg')), encoding='utf-8')
-                    tree.write('{}/{}.xml'.format(outdir, image_name.strip('.jpg')), encoding='utf-8')
+
+                    # 设置去除文件后缀名，避免与.xml冲突
+                    image_name = image_name.strip('.JPG')
+                    image_name = image_name.strip('.jpg')
+
+                    # Windows
+                    if outdir.find('\\') != -1:
+                        print('image_name', image_name)
+                        tree.write('{}\{}.xml'.format(outdir, image_name), encoding='utf-8')
+                    # Mac、Linux、Unix
+                    if outdir.find('/') != -1:
+                        print('image_name', image_name)
+                        tree.write('{}/{}.xml'.format(outdir, image_name), encoding='utf-8')
+
                 else:
                     print(image_name)
     else:
         print('imgdir not exist!')
+
 
 

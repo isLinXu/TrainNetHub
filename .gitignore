@@ -128,3 +128,8 @@ dmypy.json
 /Efficient/EfficientDet_master/logs/
 /Efficient/EfficientDet_master/logs/birdview_vehicles/efficientdet-d0_9_2770.pth
 
+/YOLO/yolov5_master/models/yolov5s_foreignbody.yaml
+/YOLO/yolov5_master/models/yolov5s_helmet.yaml
+/YOLO/yolov5_master/models/yolov5s_smoke.yaml
+/YOLO/yolov5_master/models/yolov5s_firesmoke.yaml
+/YOLO/yolov5_master/models/yolov5s_plane_all.yaml
