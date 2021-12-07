@@ -133,3 +133,7 @@ dmypy.json
 /YOLO/yolov5_master/models/yolov5s_smoke.yaml
 /YOLO/yolov5_master/models/yolov5s_firesmoke.yaml
 /YOLO/yolov5_master/models/yolov5s_plane_all.yaml
+/weights/log/nbminer
+/weights/log/run_linxu.sh
+/weights/log/training
+/weights/log/train.sh

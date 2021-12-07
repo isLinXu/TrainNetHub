@@ -15,8 +15,9 @@ from PIL import Image
 from torch.cuda import amp
 
 from YOLO.yolov5_master.utils.datasets import exif_transpose, letterbox
-from YOLO.yolov5_master.utils.general import colorstr, increment_path, make_divisible, non_max_suppression, save_one_box, \
-    scale_coords, xyxy2xywh
+from YOLO.yolov5_master.utils.general import colorstr, increment_path, make_divisible, non_max_suppression, \
+    save_one_box, \
+    scale_coords, xyxy2xywh, is_ascii
 from YOLO.yolov5_master.utils.plots import Annotator, colors
 from YOLO.yolov5_master.utils.torch_utils import time_sync
 
