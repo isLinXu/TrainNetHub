@@ -1,0 +1,11 @@
+# download command/URL (optional)
+#download: bash data/scripts/get_voc.sh
+# train and val data as 1) directory: path/images/, 2) file: path/images.txt, or 
+#3) 
+list: [path1/images/, path2/images/]
+train: /media/hxzh02/SB@home/hxzh/Dataset/无人机相关数据集合集/7-输电线路绝缘子数据集VOC/dataset_insulator/images/train/
+val: /media/hxzh02/SB@home/hxzh/Dataset/无人机相关数据集合集/7-输电线路绝缘子数据集VOC/dataset_insulator/images/val/
+# number of classes
+nc: 2
+# class names
+names: ["insulator", "defect"]

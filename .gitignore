@@ -137,3 +137,14 @@ dmypy.json
 /weights/log/run_linxu.sh
 /weights/log/training
 /weights/log/train.sh
+/YOLO/yolov5_master/weights/best.pt
+/YOLO/yolov5_master/weights/yolov5l.pt
+/YOLO/yolov5_master/weights/yolov5l6.pt
+/YOLO/yolov5_master/weights/yolov5m.pt
+/YOLO/yolov5_master/weights/yolov5m6.pt
+/YOLO/yolov5_master/weights/yolov5n.pt
+/YOLO/yolov5_master/weights/yolov5n6.pt
+/YOLO/yolov5_master/weights/yolov5s.pt
+/YOLO/yolov5_master/weights/yolov5s6.pt
+/YOLO/yolov5_master/weights/yolov5x.pt
+/YOLO/yolov5_master/weights/yolov5x6.pt
