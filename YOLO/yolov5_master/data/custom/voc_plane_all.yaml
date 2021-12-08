@@ -1,0 +1,15 @@
+# download command/URL (optional)
+#download: bash data/scripts/get_voc.sh
+# train and val data as 1) directory: path/images/, 2) file: path/images.txt, or 
+#3) 
+list: [path1/images/, path2/images/]
+train: /media/hxzh02/SB@home/hxzh/Dataset/无人机相关数据集合集/dataset_plane_all/images/train/
+val: /media/hxzh02/SB@home/hxzh/Dataset/无人机相关数据集合集/dataset_plane_all/images/val/
+# number of classes
+nc: 13
+# class names
+names: ['tower_body','tower_head','tower_foot','tower_body_down',
+        'insulator', 'defect',
+        'line','line_break','line_extract',
+        'nest', 'trash', 'kite', 'balloon',
+]
