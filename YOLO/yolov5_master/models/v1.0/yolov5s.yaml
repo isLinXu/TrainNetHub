@@ -1,3 +1,7 @@
+# YOLOv5 🚀 by Ultralytics, GPL-3.0 license
+# ---------------------------------------------------#
+#   models/v1.0
+# ---------------------------------------------------#
 # parameters
 nc: 80  # number of classes
 depth_multiple: 0.33  # model depth multiple
@@ -9,7 +13,7 @@ anchors:
   - [30,61, 62,45, 59,119]  # P4/16
   - [10,13, 16,30, 33,23]  # P3/8
 
-# YOLOv5 backbone
+# YOLOv5 v1.0 backbone
 backbone:
   # [from, number, module, args]
   [[-1, 1, Focus, [64, 3]],  # 0-P1/2
@@ -23,7 +27,7 @@ backbone:
    [-1, 1, SPP, [1024, [5, 9, 13]]],
   ]
 
-# YOLOv5 head
+# YOLOv5 v1.0 head
 head:
   [[-1, 3, BottleneckCSP, [1024, False]],  # 9
 
