@@ -43,7 +43,7 @@ def train_(object_name, models_name='yolov5s'):
     Usage-IDE使用方式：直接在下面对应位置进行修改
     """
     # 数据集配置文件
-    t_opt.data = rpath + '/data/' + 'custom_' + object_name + '.yaml'
+    t_opt.data = rpath + '/data/' + 'custom/' + 'custom_' + object_name + '.yaml'
     # 模型配置文件
     t_opt.cfg = rpath + '/models/custom/' + models_name + '_' + object_name + '.yaml'
     # 预训练权重
@@ -56,7 +56,7 @@ def train_(object_name, models_name='yolov5s'):
     # 设置线程数
     t_opt.workers = 4
     # 训练结果的文件名称
-    t_opt.name = object_name
+    t_opt.name = models_name + '_' + object_name
 
     """开始训练"""
     train_main(t_opt)
@@ -127,7 +127,7 @@ if __name__ == '__main__':
     models_name = models_list[2]
 
     # 模型训练
-    train_(object_name=models_name,models_name=models_name)
+    train_(object_name=object_name,models_name=models_name)
 
     # 模型预测
     # detect_(object_name)
