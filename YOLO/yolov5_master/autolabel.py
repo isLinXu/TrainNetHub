@@ -76,8 +76,6 @@ def detector(frame, model, device, conf_threshold=0.4,half=True):
 
                     # 画框预览效果
                     plot_one_box(xyxy, frame, label=label, color=colors(c, True), line_thickness=line_thickness)
-                    cv2.imshow('frame',frame)
-                    cv2.waitKey(0)
                     # cv2.imshow('frame',frame)
                     # cv2.waitKey(0)
 
@@ -201,13 +199,14 @@ if __name__ == '__main__':
     start_log()
     # 参数设置
     # weights = 'yolov5s.pt'
-    weights = '/home/hxzh02/MyGithub/TrainNetHub/YOLO/yolov5_master/runs/train/bm-yolov5s4/weights/best.pt'
+    weights = '/media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/runs/train/yolov5s_insulator/weights/best.pt'
+    # weights = '/media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/runs/train/yolov5_plane_all/weights/best.pt'
     # 设置图片路径
-    # imgdir = '/home/hxzh02/文档/coco128/images/train2017'
-    imgdir = '/media/hxzh02/SB@home/hxzh/Dataset/无人机杆塔航拍数据集/杆塔主体/Image'
+    imgdir = '/home/hxzh02/文档/coco128/images/train2017'
+    # imgdir = '/media/hxzh02/SB@home/hxzh/Dataset/杆塔倒塌-负样本/src/'
     # 输出xml标注文件
     # outdir = '/home/hxzh02/文档/coco128/annations'
-    outdir = '/media/hxzh02/SB@home/hxzh/Dataset/无人机杆塔航拍数据集/杆塔主体/annotaions/'
+    outdir = '/media/hxzh02/SB@home/hxzh/Dataset/杆塔倒塌-负样本/src/annotations'
 
     if (os.path.exists(imgdir)):
         # 选择设备类型
@@ -240,7 +239,8 @@ if __name__ == '__main__':
         names = model.module.names if hasattr(model, 'module') else model.names
         IMAGES_LIST = os.listdir(imgdir)
 
-        for image_name in IMAGES_LIST:
+        for i in tqdm(range(0,len(IMAGES_LIST))):
+            image_name = IMAGES_LIST[i]
             # print(image_name)
             # 判断后缀只处理jpg文件
             if image_name.endswith('.jpg') or image_name.endswith('.JPG'):
@@ -266,6 +266,10 @@ if __name__ == '__main__':
                     # 设置去除文件后缀名，避免与.xml冲突
                     image_name = image_name.strip('.JPG')
                     image_name = image_name.strip('.jpg')
+
+                    # 创建目录
+                    if not os.path.exists(outdir):
+                        os.makedirs(outdir, exist_ok=True)
 
                     # Windows
                     if outdir.find('\\') != -1:
