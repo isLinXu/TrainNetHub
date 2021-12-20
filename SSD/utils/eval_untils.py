@@ -1,6 +1,6 @@
-from SSD_pytorch.data import *
-from SSD_pytorch.data import VOC_CLASSES as VOC_CLASSES
-from SSD_pytorch.utils.config import opt
+from SSD.data import *
+from SSD.data import VOC_CLASSES as VOC_CLASSES
+from SSD.utils.config import opt
 import os
 import sys
 import pickle

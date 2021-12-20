@@ -1,5 +1,5 @@
 # -*- coding:utf-8 -*-
-# power by Mr.Li
+
 # 设置默认参数
 import os.path
 

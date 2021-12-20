@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
-# power by Mr.Li
+
 import visdom
 import time
 import numpy as np

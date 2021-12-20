@@ -1,7 +1,7 @@
 import torch
 from torch.autograd import Function
 from ..box_utils import decode, nms
-from SSD_pytorch.utils.config import opt
+from SSD.utils.config import opt
 
 
 class Detect(Function):

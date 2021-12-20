@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
-from SSD_pytorch.models import *
-from SSD_pytorch.utils.config import opt
+from SSD.models import *
+from SSD.utils.config import opt
 import os
 
 
