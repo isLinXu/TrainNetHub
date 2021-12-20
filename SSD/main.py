@@ -1,18 +1,18 @@
-from SSD_pytorch.data import *
-from SSD_pytorch.utils.augmentations import SSDAugmentation
-from SSD_pytorch.models.modules import MultiBoxLoss
-from SSD_pytorch.models.ssd import build_ssd
-from SSD_pytorch.models.modules.init_weights import weights_init
-from SSD_pytorch.data import VOC_CLASSES as VOC_CLASSES
+from SSD.data import *
+from SSD.utils.augmentations import SSDAugmentation
+from SSD.models.modules import MultiBoxLoss
+from SSD.models.ssd import build_ssd
+from SSD.models.modules.init_weights import weights_init
+from SSD.data import VOC_CLASSES as VOC_CLASSES
 import torch
-from SSD_pytorch.utils.config import opt
+from SSD.utils.config import opt
 from torch.autograd import Variable
 import torch.optim as optim
 import torch.backends.cudnn as cudnn
 import torch.utils.data as data
-from SSD_pytorch.utils.visualize import Visualizer
-from SSD_pytorch.utils.timer import Timer
-from SSD_pytorch.utils.eval_untils import evaluate_detections
+from SSD.utils.visualize import Visualizer
+from SSD.utils.timer import Timer
+from SSD.utils.eval_untils import evaluate_detections
 import os
 import time
 import sys
