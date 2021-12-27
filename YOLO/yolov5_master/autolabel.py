@@ -29,7 +29,7 @@ def mk(path):
         print("There are %d files in %s" % (len(os.listdir(path)), path))
 
 
-def detector(frame, model, device, conf_threshold=0.4, half=True):
+def detector(frame, names, model, device, conf_threshold=0.4, half=True, ):
     '''
     检测函数主体
     :param frame: 图像
@@ -198,7 +198,7 @@ def pretty_xml(element, indent, newline, level=0):  # ，参数indent用于缩�
         pretty_xml(subelement, indent, newline, level=level + 1)  # 对子元素进行递归操作
 
 
-def weight_auto_label(imgdir, weights_path, outdir):
+def weight_auto_label(imgdir, weights, outdir):
     '''
     根据预训练权重自动生成对应图像标注文件
     :param imgdir: 图像数据路径
@@ -245,7 +245,7 @@ def weight_auto_label(imgdir, weights_path, outdir):
                 image = cv2.imread(os.path.join(imgdir, image_name))
                 # 进行检测并将预测信息存入list
                 conf_threshold = 0.4
-                coordinates_list = detector(image, model, device, conf_threshold, half)
+                coordinates_list = detector(image, names, model, device, conf_threshold, half)
 
                 (h, w) = image.shape[:2]
                 create_tree(image_name, h, w, imgdir)
@@ -288,13 +288,13 @@ if __name__ == '__main__':
     start_log()
     # 参数设置
     # weights_path = 'yolov5s.pt'
-    weights_path = '/media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/runs/train/yolov5s_insulator/weights/best.pt'
+    weights_path = '/media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/runs/train/yolov5s_tower_body2/weights/best.pt'
     # weights_path = '/media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/runs/train/yolov5_plane_all/weights/best.pt'
     # 设置图片路径
-    imgdir = '/home/hxzh02/文档/coco128/images/train2017'
+    imgdir = '/media/hxzh02/SB@home/hxzh/Dataset/仑上路航拍拍摄数据整理/塔头塔身12-22拍/'
     # imgdir = '/media/hxzh02/SB@home/hxzh/Dataset/杆塔倒塌-负样本/src/'
     # 输出xml标注文件
     # outdir = '/home/hxzh02/文档/coco128/annations'
-    outdir = '/media/hxzh02/SB@home/hxzh/Dataset/杆塔倒塌-负样本/src/annotations'
+    outdir = '/media/hxzh02/SB@home/hxzh/Dataset/仑上路航拍拍摄数据整理/塔头塔身12-22拍/annotations/'
 
-    weight_auto_label(imgdir=imgdir, weights_path=weights_path, outdir=outdir)
+    weight_auto_label(imgdir=imgdir, weights=weights_path, outdir=outdir)
