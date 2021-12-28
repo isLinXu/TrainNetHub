@@ -124,7 +124,7 @@ if __name__ == '__main__':
     models_name = models_list[2]
 
     # 模型训练
-    # train_(object_name=object_name,models_name=models_name)
+    train_(object_name=object_name,models_name=models_name)
 
     # 模型预测
-    detect_(object_name)
+    # detect_(object_name)

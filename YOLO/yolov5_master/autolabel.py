@@ -291,20 +291,31 @@ def weight_auto_label(imgdir, weights, outdir):
 
 if __name__ == '__main__':
     start_log()
-    # 参数设置
+    # ---------------------------------------------------#
+    #   参数设置
+    # ---------------------------------------------------#
     # weights_path = 'yolov5s.pt'
     # weights_path = '/media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/runs/train/yolov5s_tower_body2/weights/best.pt'
     # weights_path = '/media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/runs/train/yolov5_plane_all/weights/best.pt'
-    weights_path = '/media/hxzh02/7A50-5158/insulator-beijing/weights/best.pt'
-    # 设置图片路径
+    # weights_path = '/media/hxzh02/7A50-5158/insulator-beijing/weights/best.pt'
+    weights_path = '/media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/runs/train/yolov5s_tower_head4/weights/best.pt'
+
+    # ---------------------------------------------------#
+    #   设置图片路径
+    # ---------------------------------------------------#
     # imgdir = '/media/hxzh02/SB@home/hxzh/Dataset/仑上路航拍拍摄数据整理/塔头塔身12-22拍/'
     # imgdir = '/media/hxzh02/SB@home/hxzh/Dataset/杆塔倒塌-负样本/src/'
     # imgdir = '/media/hxzh02/SB@home/hxzh/Dataset/北京灾损项目数据采集/仑上路航拍拍摄数据整理/tower_body_down/'
-    imgdir = '/media/hxzh02/SB@home/hxzh/Dataset/北京灾损项目数据采集/仑上路航拍拍摄数据整理/insulator/'
-    # 输出xml标注文件
+    # imgdir = '/media/hxzh02/SB@home/hxzh/Dataset/北京灾损项目数据采集/仑上路航拍拍摄数据整理/insulator/'
+    imgdir = '/media/hxzh02/SB@home/hxzh/Dataset/北京灾损项目数据采集/仑上路航拍拍摄数据整理/tower_head/'
+
+    # ---------------------------------------------------#
+    #   输出xml标注文件
+    # ---------------------------------------------------#
     # outdir = '/home/hxzh02/文档/coco128/annations'
     # outdir = '/media/hxzh02/SB@home/hxzh/Dataset/仑上路航拍拍摄数据整理/塔头塔身12-22拍/annotations/'
     # outdir = '/media/hxzh02/SB@home/hxzh/Dataset/北京灾损项目数据采集/仑上路航拍拍摄数据整理/tower_body_down/annotations/'
-    outdir = '/media/hxzh02/SB@home/hxzh/Dataset/北京灾损项目数据采集/仑上路航拍拍摄数据整理/insulator/annotations/'
+    # outdir = '/media/hxzh02/SB@home/hxzh/Dataset/北京灾损项目数据采集/仑上路航拍拍摄数据整理/insulator/annotations/'
+    outdir = '/media/hxzh02/SB@home/hxzh/Dataset/北京灾损项目数据采集/仑上路航拍拍摄数据整理/tower_head/annotations/'
 
     weight_auto_label(imgdir=imgdir, weights=weights_path, outdir=outdir)
