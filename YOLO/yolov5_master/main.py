@@ -62,7 +62,7 @@ def train_(object_name, models_name='yolov5s'):
     train_main(t_opt)
 
 
-def detect_(object_name):
+def detect_(object_name, models_name='yolov5s'):
     # 初始化参数列表
     d_opt = detect_parse_opt()
     """
@@ -80,12 +80,15 @@ def detect_(object_name):
     # d_opt.source = '/media/hxzh02/SB@home/hxzh/Dataset/无人机相关数据集合集/7-输电线路绝缘子数据集VOC/dataset_insulator/VOC2007/JPEGImages/'
     # d_opt.source = '/media/hxzh02/SB@home/hxzh/Dataset/无人机相关数据集合集/5-安全帽数据集5000张/dataset_safetyHat/images/val/'
 
-    # d_opt.source = '/media/hxzh02/SB@home/hxzh/Dataset/无人机相关数据集合集/dataset_plane_all/images/val'
+    d_opt.source = '/media/hxzh02/SB@home/hxzh/Dataset/Plane_detect_datasets/VOCdevkit_towerbody_detect/images/val'
     # d_opt.source = '/media/hxzh02/SB@home/hxzh/Dataset/输电杆塔照片素材'
-    d_opt.source = '/media/hxzh02/SB@home/hxzh/Dataset/11-5电塔照片视频/照片/'
+    # d_opt.source = '/home/hxzh02/文档/test_image/towerupdown'
     # 设置进行预测推理使用的权重模型文件
-    d_opt.weights = rpath + '/runs/train/' + object_name + '/weights/best.pt'
+    # d_opt.weights = rpath + '/runs/train/' + models_name + '_' + object_name + '/weights/best.pt'
     # d_opt.weights = '/home/hxzh02/MyGithub/TrainNetHub/YOLO/yolov5_master/runs/train/yolov5s_tower4/weights/best.pt'
+    # /media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/runs/train/yolov5s_tower_body2/weights/best.pt
+    # d_opt.weights = '/media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/runs/train/yolov5s_tower_only/weights/best.pt'
+    d_opt.weights = '/media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/runs/train/yolov5s_tower_body2/weights/best.pt'
     # 设置是否需要预览
     d_opt.view_img = False
     # 置信度设置
@@ -103,19 +106,13 @@ if __name__ == '__main__':
         'tower','foreignbody',
         'smoke','insulator',
         'helmet','firesmoke',
-        'plane_all','tower_only'
+        'plane_all','tower_only',
+        'tower_head'
     ]
-    # object_name = 'coco128_yolov5s'
-    # object_name = 'yolov5s_tower
-    # object_name = 'yolov5s_foreignbody'
-    # object_name = 'yolov5s_smoke'
-    # object_name = 'yolov5s_insulator'
-    # object_name = 'yolov5_helmet'
-    # object_name = 'yolov5_firesmoke'
-    # object_name = 'yolov5_plane_all'
-    # object_name = 'yolov5s_tower_only'
-    object_name = object_list[1]
 
+    # object_name = object_list[7]
+    # object_name = 'tower_head'
+    object_name = 'tower_body'
     # 模型选择
     models_list = [
         'yolov5n', 'yolov5n6',
@@ -127,7 +124,7 @@ if __name__ == '__main__':
     models_name = models_list[2]
 
     # 模型训练
-    train_(object_name=object_name,models_name=models_name)
+    # train_(object_name=object_name,models_name=models_name)
 
     # 模型预测
-    # detect_(object_name)
+    detect_(object_name)

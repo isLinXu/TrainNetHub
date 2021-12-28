@@ -28,7 +28,8 @@ def mk(path):
     else:
         print("There are %d files in %s" % (len(os.listdir(path)), path))
 
-def detector(frame, model, device, conf_threshold=0.4,half=True):
+
+def detector(frame, names, model, device, conf_threshold=0.4, half=True, if_show = True):
     '''
     检测函数主体
     :param frame: 图像
@@ -76,10 +77,12 @@ def detector(frame, model, device, conf_threshold=0.4,half=True):
 
                     # 画框预览效果
                     plot_one_box(xyxy, frame, label=label, color=colors(c, True), line_thickness=line_thickness)
-                    cv2.imshow('frame',frame)
-                    cv2.waitKey(0)
-                    # cv2.imshow('frame',frame)
-                    # cv2.waitKey(0)
+
+                    if (if_show):
+                        show_img = cv2.resize(frame, (640,480))
+                        cv2.namedWindow('show_img', cv2.WINDOW_AUTOSIZE)
+                        cv2.imshow('show_img',show_img)
+                        cv2.waitKey(0)
 
                     info_list.append(info)
                 return info_list
@@ -168,9 +171,11 @@ def create_tree(image_name, h, w, imgdir):
     segmented = ET.SubElement(annotation, 'segmented')
     segmented.text = '0'
 
+
 def start_log():
     print('开始自动标注')
     print('正在进行模型读取,请稍候...')
+
 
 def pretty_xml(element, indent, newline, level=0):  # ，参数indent用于缩进，newline用于换行
     '''
@@ -197,18 +202,14 @@ def pretty_xml(element, indent, newline, level=0):  # ，参数indent用于缩�
         pretty_xml(subelement, indent, newline, level=level + 1)  # 对子元素进行递归操作
 
 
-if __name__ == '__main__':
-    start_log()
-    # 参数设置
-    # weights = 'yolov5s.pt'
-    weights = '/home/hxzh02/MyGithub/TrainNetHub/YOLO/yolov5_master/runs/train/bm-yolov5s4/weights/best.pt'
-    # 设置图片路径
-    # imgdir = '/home/hxzh02/文档/coco128/images/train2017'
-    imgdir = '/media/hxzh02/SB@home/hxzh/Dataset/无人机杆塔航拍数据集/杆塔主体/Image'
-    # 输出xml标注文件
-    # outdir = '/home/hxzh02/文档/coco128/annations'
-    outdir = '/media/hxzh02/SB@home/hxzh/Dataset/无人机杆塔航拍数据集/杆塔主体/annotaions/'
-
+def weight_auto_label(imgdir, weights, outdir):
+    '''
+    根据预训练权重自动生成对应图像标注文件
+    :param imgdir: 图像数据路径
+    :param weights_path: 预训练权重路径
+    :param outdir: 自动标注生成标签文件对应输出路径
+    :return:
+    '''
     if (os.path.exists(imgdir)):
         # 选择设备类型
         device = torch_utils.select_device(device='0')
@@ -240,14 +241,16 @@ if __name__ == '__main__':
         names = model.module.names if hasattr(model, 'module') else model.names
         IMAGES_LIST = os.listdir(imgdir)
 
-        for image_name in IMAGES_LIST:
+        for i in tqdm(range(0, len(IMAGES_LIST))):
+            image_name = IMAGES_LIST[i]
             # print(image_name)
             # 判断后缀只处理jpg文件
             if image_name.endswith('.jpg') or image_name.endswith('.JPG'):
                 image = cv2.imread(os.path.join(imgdir, image_name))
                 # 进行检测并将预测信息存入list
                 conf_threshold = 0.4
-                coordinates_list = detector(image, model, device,conf_threshold,half)
+                # 传入图片与参数，获取相关结果
+                coordinates_list = detector(image, names, model, device, conf_threshold, half,True)
 
                 (h, w) = image.shape[:2]
                 create_tree(image_name, h, w, imgdir)
@@ -267,6 +270,10 @@ if __name__ == '__main__':
                     image_name = image_name.strip('.JPG')
                     image_name = image_name.strip('.jpg')
 
+                    # 创建目录
+                    if not os.path.exists(outdir):
+                        os.makedirs(outdir, exist_ok=True)
+
                     # Windows
                     if outdir.find('\\') != -1:
                         print('image_name', image_name)
@@ -282,4 +289,22 @@ if __name__ == '__main__':
         print('imgdir not exist!')
 
 
+if __name__ == '__main__':
+    start_log()
+    # 参数设置
+    # weights_path = 'yolov5s.pt'
+    # weights_path = '/media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/runs/train/yolov5s_tower_body2/weights/best.pt'
+    # weights_path = '/media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/runs/train/yolov5_plane_all/weights/best.pt'
+    weights_path = '/media/hxzh02/7A50-5158/insulator-beijing/weights/best.pt'
+    # 设置图片路径
+    # imgdir = '/media/hxzh02/SB@home/hxzh/Dataset/仑上路航拍拍摄数据整理/塔头塔身12-22拍/'
+    # imgdir = '/media/hxzh02/SB@home/hxzh/Dataset/杆塔倒塌-负样本/src/'
+    # imgdir = '/media/hxzh02/SB@home/hxzh/Dataset/北京灾损项目数据采集/仑上路航拍拍摄数据整理/tower_body_down/'
+    imgdir = '/media/hxzh02/SB@home/hxzh/Dataset/北京灾损项目数据采集/仑上路航拍拍摄数据整理/insulator/'
+    # 输出xml标注文件
+    # outdir = '/home/hxzh02/文档/coco128/annations'
+    # outdir = '/media/hxzh02/SB@home/hxzh/Dataset/仑上路航拍拍摄数据整理/塔头塔身12-22拍/annotations/'
+    # outdir = '/media/hxzh02/SB@home/hxzh/Dataset/北京灾损项目数据采集/仑上路航拍拍摄数据整理/tower_body_down/annotations/'
+    outdir = '/media/hxzh02/SB@home/hxzh/Dataset/北京灾损项目数据采集/仑上路航拍拍摄数据整理/insulator/annotations/'
 
+    weight_auto_label(imgdir=imgdir, weights=weights_path, outdir=outdir)
