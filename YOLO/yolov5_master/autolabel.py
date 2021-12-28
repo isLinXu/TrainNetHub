@@ -29,7 +29,7 @@ def mk(path):
         print("There are %d files in %s" % (len(os.listdir(path)), path))
 
 
-def detector(frame, names, model, device, conf_threshold=0.4, half=True, ):
+def detector(frame, names, model, device, conf_threshold=0.4, half=True, if_show = True):
     '''
     检测函数主体
     :param frame: 图像
@@ -77,8 +77,12 @@ def detector(frame, names, model, device, conf_threshold=0.4, half=True, ):
 
                     # 画框预览效果
                     plot_one_box(xyxy, frame, label=label, color=colors(c, True), line_thickness=line_thickness)
-                    # cv2.imshow('frame',frame)
-                    # cv2.waitKey(0)
+
+                    if (if_show):
+                        show_img = cv2.resize(frame, (640,480))
+                        cv2.namedWindow('show_img', cv2.WINDOW_AUTOSIZE)
+                        cv2.imshow('show_img',show_img)
+                        cv2.waitKey(0)
 
                     info_list.append(info)
                 return info_list
@@ -245,7 +249,8 @@ def weight_auto_label(imgdir, weights, outdir):
                 image = cv2.imread(os.path.join(imgdir, image_name))
                 # 进行检测并将预测信息存入list
                 conf_threshold = 0.4
-                coordinates_list = detector(image, names, model, device, conf_threshold, half)
+                # 传入图片与参数，获取相关结果
+                coordinates_list = detector(image, names, model, device, conf_threshold, half,True)
 
                 (h, w) = image.shape[:2]
                 create_tree(image_name, h, w, imgdir)
@@ -288,13 +293,18 @@ if __name__ == '__main__':
     start_log()
     # 参数设置
     # weights_path = 'yolov5s.pt'
-    weights_path = '/media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/runs/train/yolov5s_tower_body2/weights/best.pt'
+    # weights_path = '/media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/runs/train/yolov5s_tower_body2/weights/best.pt'
     # weights_path = '/media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/runs/train/yolov5_plane_all/weights/best.pt'
+    weights_path = '/media/hxzh02/7A50-5158/insulator-beijing/weights/best.pt'
     # 设置图片路径
-    imgdir = '/media/hxzh02/SB@home/hxzh/Dataset/仑上路航拍拍摄数据整理/塔头塔身12-22拍/'
+    # imgdir = '/media/hxzh02/SB@home/hxzh/Dataset/仑上路航拍拍摄数据整理/塔头塔身12-22拍/'
     # imgdir = '/media/hxzh02/SB@home/hxzh/Dataset/杆塔倒塌-负样本/src/'
+    # imgdir = '/media/hxzh02/SB@home/hxzh/Dataset/北京灾损项目数据采集/仑上路航拍拍摄数据整理/tower_body_down/'
+    imgdir = '/media/hxzh02/SB@home/hxzh/Dataset/北京灾损项目数据采集/仑上路航拍拍摄数据整理/insulator/'
     # 输出xml标注文件
     # outdir = '/home/hxzh02/文档/coco128/annations'
-    outdir = '/media/hxzh02/SB@home/hxzh/Dataset/仑上路航拍拍摄数据整理/塔头塔身12-22拍/annotations/'
+    # outdir = '/media/hxzh02/SB@home/hxzh/Dataset/仑上路航拍拍摄数据整理/塔头塔身12-22拍/annotations/'
+    # outdir = '/media/hxzh02/SB@home/hxzh/Dataset/北京灾损项目数据采集/仑上路航拍拍摄数据整理/tower_body_down/annotations/'
+    outdir = '/media/hxzh02/SB@home/hxzh/Dataset/北京灾损项目数据采集/仑上路航拍拍摄数据整理/insulator/annotations/'
 
     weight_auto_label(imgdir=imgdir, weights=weights_path, outdir=outdir)
