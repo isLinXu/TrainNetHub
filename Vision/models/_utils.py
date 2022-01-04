@@ -1,7 +1,8 @@
 from collections import OrderedDict
-from typing import Dict, Optional
 
+import torch
 from torch import nn
+from torch.jit.annotations import Dict
 
 
 class IntermediateLayerGetter(nn.ModuleDict):
@@ -17,7 +18,7 @@ class IntermediateLayerGetter(nn.ModuleDict):
     assigned to the model. So if `model` is passed, `model.feature1` can
     be returned, but not `model.feature1.layer2`.
 
-    Args:
+    Arguments:
         model (nn.Module): model on which we will extract the features
         return_layers (Dict[name, new_name]): a dict containing the names
             of the modules for which the activations will be returned as
@@ -35,13 +36,12 @@ class IntermediateLayerGetter(nn.ModuleDict):
         >>>     [('feat1', torch.Size([1, 64, 56, 56])),
         >>>      ('feat2', torch.Size([1, 256, 14, 14]))]
     """
-
     _version = 2
     __annotations__ = {
         "return_layers": Dict[str, str],
     }
 
-    def __init__(self, model: nn.Module, return_layers: Dict[str, str]) -> None:
+    def __init__(self, model, return_layers):
         if not set(return_layers).issubset([name for name, _ in model.named_children()]):
             raise ValueError("return_layers are not present in model")
         orig_return_layers = return_layers
@@ -54,7 +54,7 @@ class IntermediateLayerGetter(nn.ModuleDict):
             if not return_layers:
                 break
 
-        super().__init__(layers)
+        super(IntermediateLayerGetter, self).__init__(layers)
         self.return_layers = orig_return_layers
 
     def forward(self, x):
@@ -65,19 +65,3 @@ class IntermediateLayerGetter(nn.ModuleDict):
                 out_name = self.return_layers[name]
                 out[out_name] = x
         return out
-
-
-def _make_divisible(v: float, divisor: int, min_value: Optional[int] = None) -> int:
-    """
-    This function is taken from the original tf repo.
-    It ensures that all layers have a channel number that is divisible by 8
-    It can be seen here:
-    https://github.com/tensorflow/models/blob/master/research/slim/nets/mobilenet/mobilenet.py
-    """
-    if min_value is None:
-        min_value = divisor
-    new_v = max(min_value, int(v + divisor / 2) // divisor * divisor)
-    # Make sure that round down does not go down by more than 10%.
-    if new_v < 0.9 * v:
-        new_v += divisor
-    return new_v
