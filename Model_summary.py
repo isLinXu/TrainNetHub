@@ -24,4 +24,4 @@ wide_resnet50_2 = models.wide_resnet50_2()
 mnasnet = models.mnasnet1_0()
 
 # Usage
-# print(summary(alexnet, (3, 224, 224)))
+print(summary(alexnet, (3, 224, 224)))
