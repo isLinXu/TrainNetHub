@@ -1,24 +1,20 @@
-from typing import Any
-
 import torch
 import torch.nn as nn
-
-from .._internally_replaced_utils import load_state_dict_from_url
-from ..utils import _log_api_usage_once
+from .utils import load_state_dict_from_url
 
 
-__all__ = ["AlexNet", "alexnet"]
+__all__ = ['AlexNet', 'alexnet']
 
 
 model_urls = {
-    "alexnet": "https://download.pytorch.org/models/alexnet-owt-7be5be79.pth",
+    'alexnet': 'https://download.pytorch.org/models/alexnet-owt-4df8aa71.pth',
 }
 
 
 class AlexNet(nn.Module):
-    def __init__(self, num_classes: int = 1000, dropout: float = 0.5) -> None:
-        super().__init__()
-        _log_api_usage_once(self)
+
+    def __init__(self, num_classes=1000):
+        super(AlexNet, self).__init__()
         self.features = nn.Sequential(
             nn.Conv2d(3, 64, kernel_size=11, stride=4, padding=2),
             nn.ReLU(inplace=True),
@@ -36,16 +32,16 @@ class AlexNet(nn.Module):
         )
         self.avgpool = nn.AdaptiveAvgPool2d((6, 6))
         self.classifier = nn.Sequential(
-            nn.Dropout(p=dropout),
+            nn.Dropout(),
             nn.Linear(256 * 6 * 6, 4096),
             nn.ReLU(inplace=True),
-            nn.Dropout(p=dropout),
+            nn.Dropout(),
             nn.Linear(4096, 4096),
             nn.ReLU(inplace=True),
             nn.Linear(4096, num_classes),
         )
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x):
         x = self.features(x)
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
@@ -53,10 +49,9 @@ class AlexNet(nn.Module):
         return x
 
 
-def alexnet(pretrained: bool = False, progress: bool = True, **kwargs: Any) -> AlexNet:
+def alexnet(pretrained=False, progress=True, **kwargs):
     r"""AlexNet model architecture from the
     `"One weird trick..." <https://arxiv.org/abs/1404.5997>`_ paper.
-    The required minimum input size of the model is 63x63.
 
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
@@ -64,6 +59,7 @@ def alexnet(pretrained: bool = False, progress: bool = True, **kwargs: Any) -> A
     """
     model = AlexNet(**kwargs)
     if pretrained:
-        state_dict = load_state_dict_from_url(model_urls["alexnet"], progress=progress)
+        state_dict = load_state_dict_from_url(model_urls['alexnet'],
+                                              progress=progress)
         model.load_state_dict(state_dict)
     return model
