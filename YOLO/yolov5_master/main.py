@@ -110,8 +110,6 @@ if __name__ == '__main__':
         'tower_head'
     ]
 
-    # object_name = object_list[7]
-    # object_name = 'tower_head'
     object_name = 'tower_body'
     # 模型选择
     models_list = [
@@ -122,7 +120,6 @@ if __name__ == '__main__':
         'yolov5x', 'yolov5x6',
     ]
     models_name = models_list[2]
-
     # 模型训练
     train_(object_name=object_name,models_name=models_name)
 
