@@ -3,10 +3,10 @@ import torchvision.models as models
 # import Vision.models as models
 
 # TensorBoardX
-# pip install torchsummaryX -i https://pypi.tuna.tsinghua.edu.cn/simple
+# pip install torchsummary -i https://pypi.tuna.tsinghua.edu.cn/simple
 # 可视化了内核大小、输出形状 #params 和 Mult-Adds。
 # 此外，torchsummaryX 可以处理 RNN、递归 NN 或具有多个输入的模型。
-from torchsummaryX import summary
+from torchsummary import summary
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
