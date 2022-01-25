@@ -60,7 +60,7 @@ def train_(object_name, models_name='yolov5s', continue_flag = False):
     # 设置单次训练所选取的样本数
     t_opt.batch_size = 1
     # 设置训练样本训练的迭代次数
-    t_opt.epochs = 1024
+    t_opt.epochs = 200
     # 设置线程数
     t_opt.workers = 4
     # 训练结果的文件名称
@@ -113,8 +113,8 @@ if __name__ == '__main__':
     ]
 
     # object_name = object_list[7]
-    # object_name = 'tower_head'
-    object_name = 'lineextract'
+    object_name = 'tower_head'
+    # object_name = 'lineextract'
     # object_name = 'tower_body'
     # object_name = 'foreignbody'
     # 模型选择
@@ -129,11 +129,11 @@ if __name__ == '__main__':
     # models_name = models_list[2]
     continue_flag = False
     # models_name = '/media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/runs/train/yolov5s_tower_head4/weights/last.pt'
-    models_name = 'yolov5s'
+    models_name = 'yolov5n'
 
 
     # 模型训练
-    # train_(object_name=object_name,models_name=models_name,continue_flag=continue_flag)
+    train_(object_name=object_name,models_name=models_name,continue_flag=continue_flag)
 
     # 模型预测
-    detect_(object_name)
+    # detect_(object_name)
