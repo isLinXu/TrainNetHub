@@ -466,8 +466,5 @@ def accuracy(output, target, topk=(1,)):
         return res
 
 
-# def t_train():
-
-
 if __name__ == '__main__':
     main()
