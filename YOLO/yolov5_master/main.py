@@ -62,7 +62,7 @@ def train_(data_path, model_cfg_path, models_name='yolov5s'):
     # 训练结果的文件名称
     t_opt.name = models_name + '_' + object_name
     # 是否单分类
-    t_opt.single_cls = True
+    t_opt.single_cls = False
 
     """开始训练"""
     train_main(t_opt)
@@ -78,10 +78,10 @@ def detect_(object_name, models_name='yolov5s'):
     Usage-IDE使用方式：直接在下面对应位置进行修改
     """
     # 图像/图像集合/视频的源路径,内部自动文件类型进行判断
-    d_opt.source = '/home/linxu/Desktop/data/VOCdevkit_windbias_detect/VOC2007/JPEGImages/'
+    d_opt.source = '/media/hxzh02/TT/工装数据/行人检测视频.mp4'
     # 设置进行预测推理使用的权重模型文件
     # d_opt.weights = rpath + '/runs/train/' + models_name + '_' + object_name + '/weights/best.pt'
-    d_opt.weights = '/home/linxu/PycharmProjects/TrainNetHub/YOLO/yolov5_master/runs/train/yolov5s_windbias/weights/best.pt'
+    d_opt.weights = '/media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/runs/train/yolov5s_workclothes7/weights/best.pt'
     # 设置是否需要预览
     d_opt.view_img = False
     # 置信度设置
@@ -96,16 +96,17 @@ def detect_(object_name, models_name='yolov5s'):
 if __name__ == '__main__':
     # 设置训练任务/生成模型名称
     object_list = [
-        'tower','foreignbody',
-        'smoke','insulator',
-        'helmet','firesmoke',
-        'plane_all','tower_only',
-        'tower_head','towerlean'
+        'tower', 'foreignbody',
+        'smoke', 'insulator',
+        'helmet', 'firesmoke',
+        'plane_all', 'tower_only',
+        'tower_head', 'towerlean'
     ]
 
     # object_name = 'tower_body'
     # object_name = 'towerlean'
-    object_name = 'windbias'
+    # object_name = 'coco128_panet'
+    object_name = 'workclothes'
     # 模型选择
     models_list = [
         'yolov5n', 'yolov5n6',
@@ -115,13 +116,17 @@ if __name__ == '__main__':
         'yolov5x', 'yolov5x6',
     ]
     models_name = models_list[2]
+
     # 模型训练
+    data_path = '/media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/data/custom/custom_workclothes.yaml'
+    # data_path = '/media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/data/test/coco128.yaml'
+    # model_cfg_path = '/media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/models/hub/yolov5s-transformer.yaml'
+    # model_cfg_path = '/media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/models/v6.0 /yolov5s.yaml'
+    # model_cfg_path = '/media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/models/hub/yolov5-fpn.yaml'
+    # model_cfg_path = '/media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/models/hub/yolov5-panet.yaml'
+    model_cfg_path = '/media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/models/custom/yolov5s_workclothes.yaml'
 
-    data_path = '/media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/data/test/coco128.yaml'
-    model_cfg_path = '/media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/models/hub/yolov5s-transformer.yaml'
-
-    train_(data_path=data_path, model_cfg_path=model_cfg_path, models_name = 'yolov5s')
-    # train_(object_name=object_name,models_name=models_name)
+    # train_(data_path=data_path, model_cfg_path=model_cfg_path, models_name='yolov5s')
 
     # 模型预测
-    # detect_(object_name)
+    detect_(object_name)
