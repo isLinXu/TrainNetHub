@@ -1,191 +1,186 @@
+# YOLOv3 🚀 by Ultralytics, GPL-3.0 license
+"""
+Run inference on images, videos, directories, streams, etc.
+
+Usage:
+    $ python path/to/detect.py --weights yolov3.pt --source 0  # webcam
+                                                             img.jpg  # image
+                                                             vid.mp4  # video
+                                                             path/  # directory
+                                                             path/*.jpg  # glob
+                                                             'https://youtu.be/Zgi9g1ksQHc'  # YouTube
+                                                             'rtsp://example.com/media.mp4'  # RTSP, RTMP, HTTP stream
+"""
+
 import argparse
-import time
+import os
+import sys
 from pathlib import Path
 
 import cv2
 import torch
 import torch.backends.cudnn as cudnn
 
-from YOLO.yolov3_master.models.experimental import attempt_load
-from YOLO.yolov3_master.utils.datasets import LoadStreams, LoadImages
-from YOLO.yolov3_master.utils.general import check_img_size, check_requirements, check_imshow, non_max_suppression, apply_classifier, \
-    scale_coords, xyxy2xywh, strip_optimizer, set_logging, increment_path, save_one_box
-from YOLO.yolov3_master.utils.plots import colors, plot_one_box
-from YOLO.yolov3_master.utils.torch_utils import select_device, load_classifier, time_synchronized
+FILE = Path(__file__).resolve()
+ROOT = FILE.parents[0]  # root directory
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))  # add ROOT to PATH
+ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
+
+from .models.common import DetectMultiBackend
+from .utils.datasets import IMG_FORMATS, VID_FORMATS, LoadImages, LoadStreams
+from .utils.general import (LOGGER, check_file, check_img_size, check_imshow, check_requirements, colorstr,
+                           increment_path, non_max_suppression, print_args, scale_coords, strip_optimizer, xyxy2xywh)
+from .utils.plots import Annotator, colors, save_one_box
+from .utils.torch_utils import select_device, time_sync
 
 
 @torch.no_grad()
-def detect(opt):
-    source, weights, view_img, save_txt, imgsz = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size
-    save_img = not opt.nosave and not source.endswith('.txt')  # save inference images
-    webcam = source.isnumeric() or source.endswith('.txt') or source.lower().startswith(
-        ('rtsp://', 'rtmp://', 'http://', 'https://'))
+def run(weights=ROOT / 'yolov3.pt',  # model.pt path(s)
+        source=ROOT / 'data/images',  # file/dir/URL/glob, 0 for webcam
+        imgsz=640,  # inference size (pixels)
+        conf_thres=0.25,  # confidence threshold
+        iou_thres=0.45,  # NMS IOU threshold
+        max_det=1000,  # maximum detections per image
+        device='',  # cuda device, i.e. 0 or 0,1,2,3 or cpu
+        view_img=False,  # show results
+        save_txt=False,  # save results to *.txt
+        save_conf=False,  # save confidences in --save-txt labels
+        save_crop=False,  # save cropped prediction boxes
+        nosave=False,  # do not save images/videos
+        classes=None,  # filter by class: --class 0, or --class 0 2 3
+        agnostic_nms=False,  # class-agnostic NMS
+        augment=False,  # augmented inference
+        visualize=False,  # visualize features
+        update=False,  # update all models
+        project=ROOT / 'runs/detect',  # save results to project/name
+        name='exp',  # save results to project/name
+        exist_ok=False,  # existing project/name ok, do not increment
+        line_thickness=3,  # bounding box thickness (pixels)
+        hide_labels=False,  # hide labels
+        hide_conf=False,  # hide confidences
+        half=False,  # use FP16 half-precision inference
+        dnn=False,  # use OpenCV DNN for ONNX inference
+        ):
+    source = str(source)
+    save_img = not nosave and not source.endswith('.txt')  # save inference images
+    is_file = Path(source).suffix[1:] in (IMG_FORMATS + VID_FORMATS)
+    is_url = source.lower().startswith(('rtsp://', 'rtmp://', 'http://', 'https://'))
+    webcam = source.isnumeric() or source.endswith('.txt') or (is_url and not is_file)
+    if is_url and is_file:
+        source = check_file(source)  # download
 
     # Directories
-    # 获取保存预测路径
-    save_dir = increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok)  # increment run
+    save_dir = increment_path(Path(project) / name, exist_ok=exist_ok)  # increment run
     (save_dir / 'labels' if save_txt else save_dir).mkdir(parents=True, exist_ok=True)  # make dir
 
-    # Initialize
-    # 初始化logging
-    set_logging()
-    device = select_device(opt.device)
-    half = device.type != 'cpu'  # half precision only supported on CUDA
-
     # Load model
-    # 加载Float32模型，确保用户设定的输入图片分辨率能整除32(如不能则调整为能整除并返回)
-    model = attempt_load(weights, map_location=device)  # load FP32 model
-    stride = int(model.stride.max())  # model stride
-    imgsz = check_img_size(imgsz, s=stride)  # check img_size
-    # 获取类别名字
-    names = model.module.names if hasattr(model, 'module') else model.names  # get class names
-    if half:
-        # 设置Float16
-        model.half()  # to FP16
+    device = select_device(device)
+    model = DetectMultiBackend(weights, device=device, dnn=dnn)
+    stride, names, pt, jit, onnx = model.stride, model.names, model.pt, model.jit, model.onnx
+    imgsz = check_img_size(imgsz, s=stride)  # check image size
 
-    # Second-stage classifier
-    classify = False
-    if classify:
-        # 设置第二次分类，默认设置为False不做使用
-        modelc = load_classifier(name='resnet101', n=2)  # initialize
-        modelc.load_state_dict(torch.load('weights/resnet101.pt', map_location=device)['model']).to(device).eval()
+    # Half
+    half &= pt and device.type != 'cpu'  # half precision only supported by PyTorch on CUDA
+    if pt:
+        model.model.half() if half else model.model.float()
 
-    # Set Dataloader
-    '''
-    设置数据加载器
-    '''
-    vid_path, vid_writer = None, None
-    # 通过不同的输入源来设置不同的数据加载方式
-    if webcam: # 网络摄像头
-        # 检查当前环境是否能够正常imshow
+    # Dataloader
+    if webcam:
         view_img = check_imshow()
         cudnn.benchmark = True  # set True to speed up constant image size inference
-        dataset = LoadStreams(source, img_size=imgsz, stride=stride)
+        dataset = LoadStreams(source, img_size=imgsz, stride=stride, auto=pt and not jit)
+        bs = len(dataset)  # batch_size
     else:
-        dataset = LoadImages(source, img_size=imgsz, stride=stride)
+        dataset = LoadImages(source, img_size=imgsz, stride=stride, auto=pt and not jit)
+        bs = 1  # batch_size
+    vid_path, vid_writer = [None] * bs, [None] * bs
 
     # Run inference
-    # 进行一次前向推理,测试程序是否正常
-    if device.type != 'cpu':
-        model(torch.zeros(1, 3, imgsz, imgsz).to(device).type_as(next(model.parameters())))  # run once
-    t0 = time.time()
-
-    """
-    path 图片/视频路径
-    img 进行resize+pad之后的图片
-    img0 原size图片
-    cap 当读取图片时为None，读取视频时为视频源
-    """
-    for path, img, im0s, vid_cap in dataset:
-        img = torch.from_numpy(img).to(device)
-        img = img.half() if half else img.float()  # uint8 to fp16/32
-        img /= 255.0  # 0 - 255 to 0.0 - 1.0
-        if img.ndimension() == 3:
-            img = img.unsqueeze(0)
+    if pt and device.type != 'cpu':
+        model(torch.zeros(1, 3, *imgsz).to(device).type_as(next(model.model.parameters())))  # warmup
+    dt, seen = [0.0, 0.0, 0.0], 0
+    for path, im, im0s, vid_cap, s in dataset:
+        t1 = time_sync()
+        im = torch.from_numpy(im).to(device)
+        im = im.half() if half else im.float()  # uint8 to fp16/32
+        im /= 255  # 0 - 255 to 0.0 - 1.0
+        if len(im.shape) == 3:
+            im = im[None]  # expand for batch dim
+        t2 = time_sync()
+        dt[0] += t2 - t1
 
         # Inference
-        t1 = time_synchronized()
-        """
-        前向传播 返回pred的shape是(1, num_boxes, 5+num_class)
-        h,w为传入网络图片的长和宽，注意dataset在检测时使用了矩形推理，所以这里h不一定等于w
-        num_boxes = h/32 * w/32 + h/16 * w/16 + h/8 * w/8
-        pred[..., 0:4]为预测框坐标
-            预测框坐标为xywh(中心点+宽长)格式
-            pred[..., 4]为objectness置信度
-            pred[..., 5:-1]为分类结果
-        """
-        pred = model(img, augment=opt.augment)[0]
+        visualize = increment_path(save_dir / Path(path).stem, mkdir=True) if visualize else False
+        pred = model(im, augment=augment, visualize=visualize)
+        t3 = time_sync()
+        dt[1] += t3 - t2
 
-        # Apply NMS
-        """
-        pred:前向传播的输出
-        conf_thres:置信度阈值
-        iou_thres:iou阈值
-        classes:是否只保留特定的类别
-        agnostic_nms:进行nms是否也去除不同类别之间的框
-        max-det:保留的最大检测框数量
-        经过nms之后，预测框格式：xywh-->xyxy(左上角右下角)
-        pred是一个列表list[torch.tensor]，长度为batch_size
-        每一个torch.tensor的shape为(num_boxes, 6),内容为box+conf+cls
-        """
-        pred = non_max_suppression(pred, opt.conf_thres, opt.iou_thres, opt.classes, opt.agnostic_nms,
-                                   max_det=opt.max_det)
-        t2 = time_synchronized()
+        # NMS
+        pred = non_max_suppression(pred, conf_thres, iou_thres, classes, agnostic_nms, max_det=max_det)
+        dt[2] += time_sync() - t3
 
-        # Apply Classifier
-        # 应用二次分类(默认设置为False)
-        if classify:
-            pred = apply_classifier(pred, modelc, img, im0s)
+        # Second-stage classifier (optional)
+        # pred = utils.general.apply_classifier(pred, classifier_model, im, im0s)
 
-        # Process detections
-        # 对每一张图片作处理
-        for i, det in enumerate(pred):  # detections per image
-            # 如果输入源是webcam，则batch_size不为1，取出dataset中的一张图片
+        # Process predictions
+        for i, det in enumerate(pred):  # per image
+            seen += 1
             if webcam:  # batch_size >= 1
-                p, s, im0, frame = path[i], f'{i}: ', im0s[i].copy(), dataset.count
+                p, im0, frame = path[i], im0s[i].copy(), dataset.count
+                s += f'{i}: '
             else:
-                p, s, im0, frame = path, '', im0s.copy(), getattr(dataset, 'frame', 0)
+                p, im0, frame = path, im0s.copy(), getattr(dataset, 'frame', 0)
 
             p = Path(p)  # to Path
-            # 设置保存图片/视频的路径
-            save_path = str(save_dir / p.name)  # img.jpg
-            # 设置保存框坐标txt文件的路径
-            txt_path = str(save_dir / 'labels' / p.stem) + ('' if dataset.mode == 'image' else f'_{frame}')  # img.txt
-            # 设置打印信息(图片长宽)
-            s += '%gx%g ' % img.shape[2:]  # print string
+            save_path = str(save_dir / p.name)  # im.jpg
+            txt_path = str(save_dir / 'labels' / p.stem) + ('' if dataset.mode == 'image' else f'_{frame}')  # im.txt
+            s += '%gx%g ' % im.shape[2:]  # print string
             gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
-            imc = im0.copy() if opt.save_crop else im0  # for opt.save_crop
+            imc = im0.copy() if save_crop else im0  # for save_crop
+            annotator = Annotator(im0, line_width=line_thickness, example=str(names))
             if len(det):
                 # Rescale boxes from img_size to im0 size
-                # 调整预测框的坐标：基于resize+pad的图片的坐标-->基于原size图片的坐标
-                # 此时坐标格式为xyxy
-                det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
+                det[:, :4] = scale_coords(im.shape[2:], det[:, :4], im0.shape).round()
 
                 # Print results
-                # 打印检测到的类别数量
                 for c in det[:, -1].unique():
                     n = (det[:, -1] == c).sum()  # detections per class
                     s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "  # add to string
 
                 # Write results
-                # 保存预测结果
                 for *xyxy, conf, cls in reversed(det):
                     if save_txt:  # Write to file
-                        # 将xyxy(左上角+右下角)格式转为xywh(中心点+宽长)格式，并除上w，h做归一化，转化为列表再保存
                         xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
-                        line = (cls, *xywh, conf) if opt.save_conf else (cls, *xywh)  # label format
+                        line = (cls, *xywh, conf) if save_conf else (cls, *xywh)  # label format
                         with open(txt_path + '.txt', 'a') as f:
                             f.write(('%g ' * len(line)).rstrip() % line + '\n')
 
-                    # 在原图上画框
-                    if save_img or opt.save_crop or view_img:  # Add bbox to image
+                    if save_img or save_crop or view_img:  # Add bbox to image
                         c = int(cls)  # integer class
-                        label = None if opt.hide_labels else (names[c] if opt.hide_conf else f'{names[c]} {conf:.2f}')
-                        plot_one_box(xyxy, im0, label=label, color=colors(c, True), line_thickness=opt.line_thickness)
-                        if opt.save_crop:
-                            # 保存crop
+                        label = None if hide_labels else (names[c] if hide_conf else f'{names[c]} {conf:.2f}')
+                        annotator.box_label(xyxy, label, color=colors(c, True))
+                        if save_crop:
                             save_one_box(xyxy, imc, file=save_dir / 'crops' / names[c] / f'{p.stem}.jpg', BGR=True)
 
-            # Print time (inference + NMS)
-            # 打印前向传播+nms时间
-            print(f'{s}Done. ({t2 - t1:.3f}s)')
+            # Print time (inference-only)
+            LOGGER.info(f'{s}Done. ({t3 - t2:.3f}s)')
 
             # Stream results
-            # 如果设置展示，则show图片/视频
+            im0 = annotator.result()
             if view_img:
                 cv2.imshow(str(p), im0)
                 cv2.waitKey(1)  # 1 millisecond
 
             # Save results (image with detections)
-            # 设置保存图片/视频
             if save_img:
                 if dataset.mode == 'image':
                     cv2.imwrite(save_path, im0)
                 else:  # 'video' or 'stream'
-                    if vid_path != save_path:  # new video
-                        vid_path = save_path
-                        if isinstance(vid_writer, cv2.VideoWriter):
-                            vid_writer.release()  # release previous video writer
+                    if vid_path[i] != save_path:  # new video
+                        vid_path[i] = save_path
+                        if isinstance(vid_writer[i], cv2.VideoWriter):
+                            vid_writer[i].release()  # release previous video writer
                         if vid_cap:  # video
                             fps = vid_cap.get(cv2.CAP_PROP_FPS)
                             w = int(vid_cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -193,81 +188,57 @@ def detect(opt):
                         else:  # stream
                             fps, w, h = 30, im0.shape[1], im0.shape[0]
                             save_path += '.mp4'
-                        vid_writer = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
-                    vid_writer.write(im0)
+                        vid_writer[i] = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
+                    vid_writer[i].write(im0)
 
+    # Print results
+    t = tuple(x / seen * 1E3 for x in dt)  # speeds per image
+    LOGGER.info(f'Speed: %.1fms pre-process, %.1fms inference, %.1fms NMS per image at shape {(1, 3, *imgsz)}' % t)
     if save_txt or save_img:
         s = f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to {save_dir / 'labels'}" if save_txt else ''
-        print(f"Results saved to {save_dir}{s}")
-
-    print(f'Done. ({time.time() - t0:.3f}s)')
+        LOGGER.info(f"Results saved to {colorstr('bold', save_dir)}{s}")
+    if update:
+        strip_optimizer(weights)  # update model (to fix SourceChangeWarning)
 
 
 def detect_parse_opt():
     parser = argparse.ArgumentParser()
-    # weights:训练的权重
-    parser.add_argument('--weights', nargs='+', type=str, default='yolov3.pt', help='model.pt path(s)')
-    # source:测试数据，可以是图片/视频路径，也可以是'0'(电脑自带摄像头),也可以是rtsp等视频流
-    parser.add_argument('--source', type=str, default='data/images', help='source')  # file/folder, 0 for webcam
-    # imgsz:网络输入图片大小
-    parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
-    # conf-thres:置信度阈值
-    parser.add_argument('--conf-thres', type=float, default=0.25, help='object confidence threshold')
-    # iou - thres: 做nms的iou阈值
-    parser.add_argument('--iou-thres', type=float, default=0.45, help='IOU threshold for NMS')
-    # max-det:保留的最大检测框数量
-    parser.add_argument('--max-det', type=int, default=1000, help='maximum number of detections per image')
-    # device:设置设备
+    parser.add_argument('--weights', nargs='+', type=str, default=ROOT / 'yolov3.pt', help='model path(s)')
+    parser.add_argument('--source', type=str, default=ROOT / 'data/images', help='file/dir/URL/glob, 0 for webcam')
+    parser.add_argument('--imgsz', '--img', '--img-size', nargs='+', type=int, default=[640], help='inference size h,w')
+    parser.add_argument('--conf-thres', type=float, default=0.25, help='confidence threshold')
+    parser.add_argument('--iou-thres', type=float, default=0.45, help='NMS IoU threshold')
+    parser.add_argument('--max-det', type=int, default=1000, help='maximum detections per image')
     parser.add_argument('--device', default='', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
-    # view-img:是否展示预测之后的图片/视频，默认False
-    parser.add_argument('--view-img', action='store_true', help='display results')
-    # view-img:是否展示预测之后的图片/视频，默认False
+    parser.add_argument('--view-img', action='store_true', help='show results')
     parser.add_argument('--save-txt', action='store_true', help='save results to *.txt')
-    # save-conf:是否将置信度conf也保存到txt中，默认False
     parser.add_argument('--save-conf', action='store_true', help='save confidences in --save-txt labels')
-    # save-crop:是否保存裁剪预测框图片
     parser.add_argument('--save-crop', action='store_true', help='save cropped prediction boxes')
-    # nosave:不保存图片、视频
     parser.add_argument('--nosave', action='store_true', help='do not save images/videos')
-    # classes:设置只保留某一部分类别，形如0或者0 2 3
-    parser.add_argument('--classes', nargs='+', type=int, help='filter by class: --class 0, or --class 0 2 3')
-    # agnostic-nms: 进行nms是否也去除不同类别之间的框，默认False
+    parser.add_argument('--classes', nargs='+', type=int, help='filter by class: --classes 0, or --classes 0 2 3')
     parser.add_argument('--agnostic-nms', action='store_true', help='class-agnostic NMS')
-    # augment:推理的时候进行多尺度，翻转等操作(TTA)推理
     parser.add_argument('--augment', action='store_true', help='augmented inference')
-    # update:如果为True，则对所有模型进行strip_optimizer操作，去除pt文件中的优化器等信息，默认为False
+    parser.add_argument('--visualize', action='store_true', help='visualize features')
     parser.add_argument('--update', action='store_true', help='update all models')
-    # project:保存测试日志的文件夹路径
-    parser.add_argument('--project', default='runs/detect', help='save results to project/name')
-    # name:保存测试日志文件夹的名字, 所以最终是保存在project/name中
+    parser.add_argument('--project', default=ROOT / 'runs/detect', help='save results to project/name')
     parser.add_argument('--name', default='exp', help='save results to project/name')
-    # exist_ok: 是否重新创建日志文件, False时重新创建文件
     parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
-    # line - thickness: 画框的线条粗细
     parser.add_argument('--line-thickness', default=3, type=int, help='bounding box thickness (pixels)')
-    # hide-labels:可视化时隐藏预测类别
     parser.add_argument('--hide-labels', default=False, action='store_true', help='hide labels')
-    # hide-conf:可视化时隐藏置信度
     parser.add_argument('--hide-conf', default=False, action='store_true', help='hide confidences')
+    parser.add_argument('--half', action='store_true', help='use FP16 half-precision inference')
+    parser.add_argument('--dnn', action='store_true', help='use OpenCV DNN for ONNX inference')
     opt = parser.parse_args()
-    print(opt)
+    opt.imgsz *= 2 if len(opt.imgsz) == 1 else 1  # expand
+    print_args(FILE.stem, opt)
     return opt
 
 
-def detect_main(d_opt):
-    check_requirements(exclude=('tensorboard', 'pycocotools', 'thop'))
-
-    if d_opt.update:  # update all models (to fix SourceChangeWarning)
-        for d_opt.weights in ['yolov3.pt', 'yolov3-spp.pt', 'yolov3-tiny.pt']:
-            detect(opt=d_opt)
-            strip_optimizer(d_opt.weights)
-    else:
-        detect(opt=d_opt)
+def detect_main(opt):
+    check_requirements(exclude=('tensorboard', 'thop'))
+    run(**vars(opt))
 
 
-if __name__ == '__main__':
-    d_opt = detect_parse_opt()
-    d_opt.source = '/home/hxzh02/MyGithub/TrainNetHub/YOLO/yolov3_master/data/images/bus.jpg'
-    d_opt.weights = '/home/hxzh02/MyGithub/TrainNetHub/YOLO/yolov3_master/weights/yolov3.pt'
-    d_opt.view_img = False
-    detect_main(d_opt)
+if __name__ == "__main__":
+    opt = detect_parse_opt()
+    detect_main(opt)
