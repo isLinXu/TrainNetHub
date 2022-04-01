@@ -26,9 +26,9 @@ def train_():
     # weights/yolov3.pt, yolov3-spp.pt,yolov3-tiny.pt,yolov5l.pt
     t_opt.weights = 'weights/yolov3.pt'
     # 设置单次训练所选取的样本数
-    t_opt.batch_size = 16
+    t_opt.batch_size = 8
     # 设置训练样本训练的迭代次数
-    t_opt.epochs = 500
+    t_opt.epochs = 300
     # 设置线程数
     t_opt.workers = 4
     # 训练结果的文件名称
