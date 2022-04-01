@@ -303,12 +303,9 @@ if __name__ == '__main__':
     #   参数设置
     # ---------------------------------------------------#
     # weights_path = 'yolov5s.pt'
-    # weights_path = '/media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/runs/train/yolov5s_tower_body2/weights/best.pt'
-    # weights_path = '/media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/runs/train/yolov5_plane_all/weights/best.pt'
+    # weights_path = '/media/hxzh02/SB@home/hxzh/MyGithub/PlaneDetectPro/weight/insulator.pt'
+    weights_path = '/media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/runs/train/yolov5s_workclothes7/weights/best.pt'
     # weights_path = '/media/hxzh02/TT/PlaneDedectProject/weight/towerupdown.pt'
-    # weights_path = '/media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/runs/train/yolov5s_tower_body3/weights/best.pt'
-    weights_path = '/media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/runs/train/yolov5s_tower_body2/weights/best.pt'
-    # weights_path = '/media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/runs/train/yolov5s_tower_head4/weights/best.pt'
 
     # ---------------------------------------------------#
     #   设置图片路径
@@ -318,7 +315,9 @@ if __name__ == '__main__':
     # imgdir = '/media/hxzh02/SB@home/hxzh/Dataset/北京灾损项目数据采集/仑上路航拍拍摄数据整理/tower_body_down/'
     # imgdir = '/media/hxzh02/SB@home/hxzh/Dataset/北京灾损项目数据采集/仑上路航拍拍摄数据整理/insulator/'
     # imgdir = '/media/hxzh02/SB@home/hxzh/Dataset/北京灾损项目数据采集/tower_body_down/'
-    imgdir = '/media/hxzh02/TT/陕西航拍数据/塔身塔基/'
+
+    # imgdir = '/media/hxzh02/SB@home/hxzh/MyGithub/塔身塔基/'
+    imgdir = '/media/hxzh02/Files/All/'
 
     # ---------------------------------------------------#
     #   输出xml标注文件
@@ -328,6 +327,14 @@ if __name__ == '__main__':
     # outdir = '/media/hxzh02/SB@home/hxzh/Dataset/北京灾损项目数据采集/仑上路航拍拍摄数据整理/tower_body_down/annotations/'
     # outdir = '/media/hxzh02/SB@home/hxzh/Dataset/北京灾损项目数据采集/仑上路航拍拍摄数据整理/insulator/annotations/'
     # outdir = '/media/hxzh02/SB@home/hxzh/Dataset/北京灾损项目数据采集/tower_body_down/annotations/'
-    outdir = '/media/hxzh02/TT/陕西航拍数据/Annotations'
+    # outdir = '/media/hxzh02/SB@home/hxzh/MyGithub/annotations'
+    outdir = '/media/hxzh02/Files/All/annotations1/'
 
     weight_auto_label(imgdir=imgdir, weights=weights_path, outdir=outdir)
+
+
+
+
+
+
+
