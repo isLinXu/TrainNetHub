@@ -107,7 +107,7 @@ if __name__ == '__main__':
     # object_name = 'towerlean'
     # object_name = 'coco128_panet'
     # object_name = 'towerbody_base'
-    object_name = 'workclothes'
+    object_name = 'coco128'
     # 模型选择
     models_list = [
         'yolov5n', 'yolov5n6',
@@ -119,19 +119,9 @@ if __name__ == '__main__':
     models_name = models_list[2]
 
     # 模型训练
-    data_path = '/media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/data/custom/custom_workclothes.yaml'
-    # data_path = '/media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/data/test/coco128.yaml'
-    # data_path = '/media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/data/custom/custom_tower_tower_base.yaml'
+    data_path = '/home/linxu/PycharmProjects/TrainNetHub/YOLO/yolov5_master/data/coco128.yaml'
 
-
-
-    # model_cfg_path = '/media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/models/hub/yolov5s-transformer.yaml'
-    # model_cfg_path = '/media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/models/v6.0 /yolov5s.yaml'
-    # model_cfg_path = '/media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/models/hub/yolov5-fpn.yaml'
-    # model_cfg_path = '/media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/models/hub/yolov5-panet.yaml'
-    model_cfg_path = '/media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/models/custom/yolov5s_workclothes.yaml'
-    # model_cfg_path = '/media/hxzh02/SB@home/hxzh/MyGithub/TrainNetHub/YOLO/yolov5_master/models/custom/yolov5s_tower_base.yaml'
-
+    model_cfg_path = '/home/linxu/PycharmProjects/TrainNetHub/YOLO/yolov5_master/models/yolov5s.yaml'
     train_(data_path=data_path, model_cfg_path=model_cfg_path, models_name='yolov5s')
 
     # 模型预测
