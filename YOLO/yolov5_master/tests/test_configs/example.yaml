@@ -1,0 +1,26 @@
+input_size: [32, 32]
+input_channel: 3
+
+depth_multiple: 1.0
+width_multiple: 1.0
+
+backbone:
+    # Example model in PyTorch Tutorial (https://pytorch.org/tutorials/beginner/blitz/cifar10_tutorial.html)
+    # [from, repeat, module, args]
+    [
+        [-1, 1, Conv, [6, 5, 1, 0], {activation: LeakyReLU}],
+        [-1, 1, MaxPool, [2]],
+        [-1, 1, nn.Conv2d, [16, 5, 1, 2], {bias: False}],
+        [-1, 1, nn.BatchNorm2d, []],
+        [-1, 1, nn.ReLU, []],
+        [-1, 1, MaxPool, [2]],
+        [-1, 1, Flatten, []],
+        [-1, 1, Linear, [120, ReLU]],
+        [-1, 1, Linear, [84, ReLU]],
+    ]
+
+head:
+  [
+    [-1, 1, Linear, [10]]
+  ]
+
