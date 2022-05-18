@@ -160,3 +160,4 @@ dmypy.json
 /YOLO/yolov5_master/models/custom/yolov5s_tower_body.yaml
 /YOLO/yolov5_master/models/custom/yolov5s_tower_only.yaml
 /YOLO/yolov5_master/models/custom/yolov5s_towerlean.yaml
+/YOLO/yoloR-master/weights/
