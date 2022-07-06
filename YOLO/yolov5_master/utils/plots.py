@@ -469,3 +469,85 @@ def save_one_box(xyxy, im, file='image.jpg', gain=1.02, pad=10, square=False, BG
         file.parent.mkdir(parents=True, exist_ok=True)  # make directory
         cv2.imwrite(str(increment_path(file).with_suffix('.jpg')), crop)
     return crop
+
+
+def plot_one_box(x, im, color=(128, 128, 128), label=None, line_thickness=3):
+    """一般会用在detect.py中在nms之后变量每一个预测框，再将每个预测框画在原图上
+    使用opencv在原图im上画一个bounding box
+    :params x: 预测得到的bounding box  [x1 y1 x2 y2]
+    :params im: 原图 要将bounding box画在这个图上  array
+    :params color: bounding box线的颜色
+    :params labels: 标签上的框框信息  类别 + score
+    :params line_thickness: bounding box的线宽
+    """
+    # Plots one bounding box on image 'im' using OpenCV
+    # check im内存是否连续
+    assert im.data.contiguous, 'Image not contiguous. Apply np.ascontiguousarray(im) to plot_on_box() input image.'
+    # tl = 框框的线宽  要么等于line_thickness要么根据原图im长宽信息自适应生成一个
+    tl = line_thickness or round(0.002 * (im.shape[0] + im.shape[1]) / 2) + 1  # line/font thickness
+    # c1 = (x1, y1) = 矩形框的左上角   c2 = (x2, y2) = 矩形框的右下角
+    c1, c2 = (int(x[0]), int(x[1])), (int(x[2]), int(x[3]))
+    # cv2.rectangle: 在im上画出框框   c1: start_point(x1, y1)  c2: end_point(x2, y2)
+    # 注意: 这里的c1+c2可以是左上角+右下角  也可以是左下角+右上角都可以
+    cv2.rectangle(im, c1, c2, color, thickness=tl, lineType=cv2.LINE_AA)
+
+    # 如果label不为空还要在框框上面显示标签label + score
+    # label结构为name, conf.
+    if label:
+        # label字体的线宽 font thickness
+        tf = max(tl - 1, 1)  # font thickness
+        # cv2.getTextSize: 根据输入的label信息计算文本字符串的宽度和高度
+        # 0: 文字字体类型  fontScale: 字体缩放系数  thickness: 字体笔画线宽
+        # 返回retval 字体的宽高 (width, height), baseLine 相对于最底端文本的 y 坐标
+        t_size = cv2.getTextSize(label, 0, fontScale=tl / 3, thickness=tf)[0]
+        c2 = c1[0] + t_size[0], c1[1] - t_size[1] - 3
+        # 同上面一样是个画框的步骤  但是线宽thickness=-1表示整个矩形都填充color颜色
+        cv2.rectangle(im, c1, c2, color, -1, cv2.LINE_AA)  # filled
+        cv2.putText(im, label, (c1[0], c1[1] - 2), 0, tl / 3, [225, 255, 255], thickness=tf, lineType=cv2.LINE_AA)
+
+def get_center_point(c1, c2):
+    return int((c1[0]+c2[0])/2),int((c1[1]+c2[1])/2)
+
+def plot_one_box_circle(x, im, color=(128, 128, 128), label=None, line_thickness=3):
+    """一般会用在detect.py中在nms之后变量每一个预测框，再将每个预测框画在原图上
+    使用opencv在原图im上画一个bounding box
+    :params x: 预测得到的bounding box  [x1 y1 x2 y2]
+    :params im: 原图 要将bounding box画在这个图上  array
+    :params color: bounding box线的颜色
+    :params labels: 标签上的框框信息  类别 + score
+    :params line_thickness: bounding box的线宽
+    """
+    # Plots one bounding box on image 'im' using OpenCV
+    # check im内存是否连续
+    assert im.data.contiguous, 'Image not contiguous. Apply np.ascontiguousarray(im) to plot_on_box() input image.'
+    # tl = 框框的线宽  要么等于line_thickness要么根据原图im长宽信息自适应生成一个
+    tl = line_thickness or round(0.002 * (im.shape[0] + im.shape[1]) / 2) + 1  # line/font thickness
+    # c1 = (x1, y1) = 矩形框的左上角   c2 = (x2, y2) = 矩形框的右下角
+    c1, c2 = (int(x[0]), int(x[1])), (int(x[2]), int(x[3]))
+    # cv2.rectangle: 在im上画出框框   c1: start_point(x1, y1)  c2: end_point(x2, y2)
+    # 注意: 这里的c1+c2可以是左上角+右下角  也可以是左下角+右上角都可以
+    # cv2.rectangle(im, c1, c2, color, thickness=tl, lineType=cv2.LINE_AA)
+    x_pt, y_pt = get_center_point(c1,c2)
+    cv2.circle(im,(int(x_pt),int(y_pt)),4,color)
+    return x_pt,y_pt
+
+
+
+
+def plot_one_box_PIL(box, im, color=(128, 128, 128), label=None, line_thickness=None):
+    """使用Pillow画单个框
+    :param x: 坐标，xyxy格式左上角右下角
+    :param im:原图
+    """
+    # Plots one bounding box on image 'im' using PIL
+    # numpy/cv2转化为Pillow格式
+    im = Image.fromarray(im)
+    draw = ImageDraw.Draw(im)
+    line_thickness = line_thickness or max(int(min(im.size) / 200), 2)
+    draw.rectangle(box, width=line_thickness, outline=color)  # plot
+    if label:
+        font = ImageFont.truetype("Arial.ttf", size=max(round(max(im.size) / 40), 12))
+        txt_width, txt_height = font.getsize(label)
+        draw.rectangle([box[0], box[1] - txt_height + 4, box[0] + txt_width, box[1]], fill=color)
+        draw.text((box[0], box[1] - txt_height + 1), label, fill=(255, 255, 255), font=font)
+    return np.asarray(im)

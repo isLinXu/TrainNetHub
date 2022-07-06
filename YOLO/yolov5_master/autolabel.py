@@ -285,11 +285,11 @@ def auto_label_main(weights, imgdir, outdir):
 if __name__ == '__main__':
     start_log()
     # 参数设置
-    weights = '/media/hxzh02/SB@home/hxzh/MyGithub/Plane_detect_Project/weight/towerupdown.pt'
+    weights = '/media/hxzh02/SB@home/hxzh/MyGithub/Plane_detect_Project/weight/insulator.pt'
     # 设置图片路径
     imgdir = '/media/hxzh02/SB@home/hxzh/DJI_DATA/内许线数据采集/PIC/'
     # 输出xml标注文件
-    outdir = '/media/hxzh02/SB@home/hxzh/DJI_DATA/内许线数据采集/Annotations/'
+    outdir = '/media/hxzh02/SB@home/hxzh/DJI_DATA/内许线数据采集/Annotations1/'
 
     auto_label_main(weights, imgdir, outdir)
 
