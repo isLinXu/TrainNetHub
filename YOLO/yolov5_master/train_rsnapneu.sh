@@ -1,0 +1,1 @@
+CUDA_VISIBLE_DEVICES=0 python train.py --cfg models/hub/yolov5x6.yaml --weights weights/yolov5x6.pt --sync-bn --data data/rsna_pneu.yaml --batch-size 32 --img-size 768 --device 0 --epochs 40 --name rsnapneu
