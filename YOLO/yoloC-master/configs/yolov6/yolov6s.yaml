@@ -1,0 +1,42 @@
+# Parameters
+nc: 80  # number of classes
+depth_multiple: 0.33  # model depth multiple
+width_multiple: 0.50  # layer channel multiple
+anchors: 1  # number of anchors
+
+# YOLOv6 backbone
+backbone:
+  # [from, number, module, args]
+  [[-1, 1, RepVGGBlock, [32, 3, 2]],      # 0-P1/2
+   [-1, 1, RepVGGBlock, [64, 3, 2]],     # 1-P2/4 
+   [-1, 6, RepBlock   , [32, 32]],      # 2   输入输出通道不变
+   [-1, 1, RepVGGBlock, [128, 3, 2]],     # 3-P3/8
+   [-1, 12, RepBlock   , [64, 64]],   # 4   输入输出通道不变
+   [-1, 1, RepVGGBlock, [256, 3, 2] ],    # 5-P3/16
+   [-1, 18, RepBlock   , [128, 128] ],  # 6   输入输出通道不变
+   [-1, 1, RepVGGBlock, [512, 3, 2] ],   # 7-P3/32
+   [-1, 6, RepBlock   , [256, 256] ],  # 8   输入输出通道不变
+   [-1, 1, SimSPPF    , [256, 256, 5]],   # 9   输入输出通道不变
+  ]
+
+# YOLOv6 head
+head:
+  [[-1, 1, SimConv, [256, 64, 1, 1]],  # 10
+   [-1, 1, nn.Upsample, [None, 2, 'nearest']],
+   [[-1, 6], 1, Concat, [1]],           # 12 cat backbone P4
+   [-1, 12, RepBlock, [192, 64]],    # 13
+
+   [-1, 1, SimConv, [64, 32, 1, 1]],   # 14
+   [-1, 1, nn.Upsample, [None, 2, 'nearest']],
+   [[-1, 4], 1, Concat, [1]],           # 16 cat backbone P3
+   [-1, 12, RepBlock, [96, 32]],     # 17 (P3/8-small)    [64, 80, 80]
+
+   [-1, 1, SimConv, [32, 32, 3, 2]],    # 18
+   [[-1, 14], 1, Concat, [1]],          # 19 cat head P4
+   [-1, 12, RepBlock, [64, 64]],     # 20 (P4/16-medium) [128, 40, 40]   输入输出通道不变
+
+   [-1, 1, SimConv, [64, 64, 3, 2]],   # 21
+   [[-1, 10], 1, Concat, [1]],          # 22 cat head P5
+   [-1, 12, RepBlock, [128, 128]],    # 23 (P5/32-large)   [256, 20, 20]   输入输出通道不变
+   [[17, 20, 23], 1, Detectv6, [nc, [32, 64, 128]]],  # Detect(P3, P4, P5)    P17、20、23的输出通道
+  ]

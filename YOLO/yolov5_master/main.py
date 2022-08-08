@@ -96,17 +96,7 @@ def detect_(object_name, models_name='yolov5s'):
 if __name__ == '__main__':
     # 设置训练任务/生成模型名称
     object_list = [
-        'tower', 'foreignbody',
-        'smoke', 'insulator',
-        'helmet', 'firesmoke',
-        'plane_all', 'tower_only',
-        'tower_head', 'towerlean'
     ]
-
-    # object_name = 'tower_body'
-    # object_name = 'towerlean'
-    # object_name = 'coco128_panet'
-    # object_name = 'towerbody_base'
     object_name = 'coco128'
     # 模型选择
     models_list = [
